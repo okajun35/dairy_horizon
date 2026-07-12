@@ -44,7 +44,7 @@
           <label>乳価の年変化（円/kg・年）<input name="milk_price_change_yen_per_kg_per_year" type="number" min="-100" max="100" step="1" value="{{ values.milk_price_change_yen_per_kg_per_year }}"></label>
           <label>電力量単価（円/kWh）<input name="electricity_price_yen_per_kwh" type="number" min="0" step="1" value="{{ values.electricity_price_yen_per_kwh }}"></label>
           <label>電気代の年変化（%）<input name="electricity_price_change_pct_per_year" type="number" min="0" max="100" step="1" value="{{ values.electricity_price_change_pct_per_year }}"></label>
-          <label>変動費率（%）<input name="variable_cost_ratio_pct" type="number" min="0" max="100" step="0.1" value="{{ values.variable_cost_ratio_pct }}"></label>
+          <label>変動費率（%）<input name="variable_cost_ratio_pct" type="number" min="0" max="95" step="0.1" value="{{ values.variable_cost_ratio_pct }}"><small>初期値60%。乳飼比など、売上増加に伴う費用割合です。</small></label>
           <label>防げると仮定した乳量（kg/頭/日）<input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" max="20" step="0.1" value="{{ values.avoided_milk_loss_kg_per_cow_day }}"></label>
           <label>1台当たり導入費（円）<input name="installed_cost_yen_per_unit" type="number" min="0" step="1000" value="{{ values.installed_cost_yen_per_unit }}"></label>
           <label>回収をみる年数<input name="evaluation_period_years" type="number" min="1" max="30" value="{{ values.evaluation_period_years }}"></label>

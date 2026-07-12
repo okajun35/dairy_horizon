@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.vertical_slice import (
     EconomicsInputs,
+    InputValidationError,
     calculate_economics,
     calculate_required_fans,
     build_dashboard,
@@ -205,6 +206,12 @@ class VariableModelTest(unittest.TestCase):
         low = build_dashboard({"milk_price_yen_per_kg": "120"})["plans"]["full_installation"]
         high = build_dashboard({"milk_price_yen_per_kg": "150"})["plans"]["full_installation"]
         self.assertLessEqual(low["maximum_affordable_capex_yen"], high["maximum_affordable_capex_yen"])
+
+    def test_variable_cost_ratio_is_editable_but_limited_to_95_percent(self) -> None:
+        dashboard = build_dashboard({"variable_cost_ratio_pct": "65"})
+        self.assertEqual("65", dashboard["values"]["variable_cost_ratio_pct"])
+        with self.assertRaises(InputValidationError):
+            build_dashboard({"variable_cost_ratio_pct": "95.1"})
 
     def test_same_input_returns_same_result(self) -> None:
         one = build_dashboard({"lactating_cows": "75", "existing_fan_count": "12"})

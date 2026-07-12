@@ -42,6 +42,14 @@ def percent_to_ratio(value: Any) -> Decimal:
     return ratio
 
 
+def variable_cost_ratio(value: Any) -> Decimal:
+    """Validate the screening contribution-cost ratio at its product limit."""
+    ratio = percent_to_ratio(value)
+    if ratio > Decimal("0.95"):
+        raise InputValidationError("variable cost ratio must be between 0 and 95")
+    return ratio
+
+
 def display_money(value: Decimal | None) -> str:
     if value is None:
         return "—"
@@ -343,7 +351,7 @@ def _inputs_from_values(
         "useful_life_years": int(fan["useful_life_years"]),
         "evaluation_period_years": evaluation_years,
         "milk_price_yen_per_kg": decimal_value(values["milk_price_yen_per_kg"]),
-        "variable_cost_ratio": percent_to_ratio(values["variable_cost_ratio_pct"]),
+        "variable_cost_ratio": variable_cost_ratio(values["variable_cost_ratio_pct"]),
         "avoided_milk_loss_kg_per_cow_day": decimal_value(values["avoided_milk_loss_kg_per_cow_day"]),
     }
     return {
