@@ -58,6 +58,16 @@ def recalculate(
     installed_cost_yen_per_unit: str = Form(...),
     evaluation_period_years: str = Form(...),
     climate_year: str = Form("2030"),
+    stage_one_year: str = Form(""),
+    full_installation_year: str = Form(""),
+    milk_price_change_yen_per_kg_per_year: str = Form("0"),
+    electricity_price_change_pct_per_year: str = Form("0"),
+    annual_cash_before_heat_yen: str = Form("1600000"),
+    starting_cash_reserve_yen: str = Form("1000000"),
+    maximum_debt_yen: str = Form("2500000"),
+    minimum_annual_cash_yen: str = Form("0"),
+    existing_fans_service_until_year: str = Form("2032"),
+    maximum_uncovered_cow_heat_days: str = Form("3200"),
     selected_plan: str = Form("full_installation"),
 ) -> HTMLResponse:
     submitted = {
@@ -71,6 +81,16 @@ def recalculate(
         "installed_cost_yen_per_unit": installed_cost_yen_per_unit,
         "evaluation_period_years": evaluation_period_years,
         "climate_year": climate_year,
+        "stage_one_year": stage_one_year,
+        "full_installation_year": full_installation_year,
+        "milk_price_change_yen_per_kg_per_year": milk_price_change_yen_per_kg_per_year,
+        "electricity_price_change_pct_per_year": electricity_price_change_pct_per_year,
+        "annual_cash_before_heat_yen": annual_cash_before_heat_yen,
+        "starting_cash_reserve_yen": starting_cash_reserve_yen,
+        "maximum_debt_yen": maximum_debt_yen,
+        "minimum_annual_cash_yen": minimum_annual_cash_yen,
+        "existing_fans_service_until_year": existing_fans_service_until_year,
+        "maximum_uncovered_cow_heat_days": maximum_uncovered_cow_heat_days,
         "selected_plan": selected_plan,
     }
     try:

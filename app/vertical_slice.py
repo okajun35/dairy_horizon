@@ -6,6 +6,14 @@ from decimal import Decimal, ROUND_FLOOR, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
 
+from app.future_simulator import (
+    FutureFarmInputs,
+    FutureScenarioValidationError,
+    InvestmentTiming,
+    YearConditions,
+    recommend_timing,
+    simulate_future,
+)
 from scripts.generate_barn_layout import TieStallBarnConfig, TieStallLayoutGenerator
 
 
@@ -59,6 +67,7 @@ def load_future_climate() -> dict[str, Any]:
 
 
 def form_values_from_farm(farm: dict[str, Any]) -> dict[str, str]:
+    future = farm["future_planning_assumptions"]
     return {
         "lactating_cows": str(farm["barn_input"]["lactating_cows"]),
         "lane_count": str(farm["barn_input"]["lane_count"]),
@@ -70,6 +79,16 @@ def form_values_from_farm(farm: dict[str, Any]) -> dict[str, str]:
         "installed_cost_yen_per_unit": str(farm["fan_assumptions"]["installed_cost_yen_per_unit"]),
         "evaluation_period_years": str(farm["evaluation_period_years"]),
         "climate_year": "2030",
+        "stage_one_year": "",
+        "full_installation_year": "",
+        "milk_price_change_yen_per_kg_per_year": str(future["milk_price_change_yen_per_kg_per_year"]),
+        "electricity_price_change_pct_per_year": str(future["electricity_price_change_pct_per_year"]),
+        "annual_cash_before_heat_yen": str(future["annual_cash_before_heat_yen"]),
+        "starting_cash_reserve_yen": str(future["starting_cash_reserve_yen"]),
+        "maximum_debt_yen": str(future["maximum_debt_yen"]),
+        "minimum_annual_cash_yen": str(future["minimum_annual_cash_yen"]),
+        "existing_fans_service_until_year": str(future["existing_fans_service_until_year"]),
+        "maximum_uncovered_cow_heat_days": str(future["maximum_uncovered_cow_heat_days"]),
         "selected_plan": "full_installation",
     }
 
@@ -354,6 +373,96 @@ def _selected_heat_context(
     }
 
 
+def _year_conditions_from_values(values: dict[str, str], farm: dict[str, Any], future_climate: dict[str, Any]) -> tuple[YearConditions, ...]:
+    planning = farm["future_planning_assumptions"]
+    start_year = int(planning["timeline_start_year"])
+    end_year = int(planning["timeline_end_year"])
+    milk_change = decimal_value(values["milk_price_change_yen_per_kg_per_year"])
+    electricity_change = percent_to_ratio(values["electricity_price_change_pct_per_year"])
+    if not Decimal("-100") <= milk_change <= Decimal("100"):
+        raise InputValidationError("annual milk-price change must be between -100 and 100 yen/kg")
+    conditions: list[YearConditions] = []
+    for year in range(start_year, end_year + 1):
+        try:
+            heat_days = decimal_value(future_climate["years"][str(year)]["summary"]["thi_days_daily_mean_ge_72"]["median"])
+        except KeyError as exc:
+            raise InputValidationError(f"generated climate profile is missing {year}") from exc
+        years_from_start = year - start_year
+        milk_price = max(ZERO, decimal_value(values["milk_price_yen_per_kg"]) + milk_change * years_from_start)
+        electricity_price = decimal_value(values["electricity_price_yen_per_kwh"]) * ((ONE + electricity_change) ** years_from_start)
+        conditions.append(YearConditions(
+            year=year,
+            heat_stress_days=heat_days,
+            milk_price_yen_per_kg=milk_price,
+            electricity_price_yen_per_kwh=electricity_price,
+        ))
+    return tuple(conditions)
+
+
+def _timing_value(value: str, years: tuple[int, ...], field_name: str) -> int | None:
+    if value in {"", "none"}:
+        return None
+    try:
+        year = int(value)
+    except ValueError as exc:
+        raise InputValidationError(f"{field_name} must be a year in the timeline") from exc
+    if year not in years:
+        raise InputValidationError(f"{field_name} must be in the timeline")
+    return year
+
+
+def _future_inputs(
+    values: dict[str, str], parsed: dict[str, Any], farm: dict[str, Any], stage_one_fan_count: int,
+) -> FutureFarmInputs:
+    planning = farm["future_planning_assumptions"]
+    additional = sum(parsed["targets_by_lane"]) - parsed["existing_count"]
+    return FutureFarmInputs(
+        total_cows=parsed["total_cows"],
+        target_fan_count=sum(parsed["targets_by_lane"]),
+        existing_fan_count=parsed["existing_count"],
+        cows_per_fan=int(farm["layout_assumptions"]["cows_per_target_fan"]),
+        stage_one_fan_count=stage_one_fan_count,
+        full_installation_fan_count=max(0, additional - stage_one_fan_count),
+        installed_cost_yen_per_unit=parsed["common"]["installed_cost_yen_per_unit"],
+        power_kw_per_unit=parsed["common"]["power_kw_per_unit"],
+        operating_hours_per_day=parsed["common"]["operating_hours_per_day"],
+        basic_charge_yen_per_kw_month=parsed["common"]["basic_charge_yen_per_kw_month"],
+        inverter_reduction_ratio=parsed["common"]["inverter_reduction_ratio"],
+        useful_life_years=parsed["common"]["useful_life_years"],
+        existing_fans_service_until_year=int(values["existing_fans_service_until_year"]),
+        avoided_milk_loss_kg_per_cow_day=parsed["common"]["avoided_milk_loss_kg_per_cow_day"],
+        variable_cost_ratio=parsed["common"]["variable_cost_ratio"],
+        annual_cash_before_heat_yen=decimal_value(values["annual_cash_before_heat_yen"]),
+        starting_cash_reserve_yen=decimal_value(values["starting_cash_reserve_yen"]),
+        maximum_debt_yen=decimal_value(values["maximum_debt_yen"]),
+        minimum_annual_cash_yen=decimal_value(values["minimum_annual_cash_yen"]),
+        maximum_uncovered_cow_heat_days=decimal_value(values["maximum_uncovered_cow_heat_days"]),
+    )
+
+
+def _future_chart_data(simulation: Any) -> dict[str, Any]:
+    return {
+        "years": [item.year for item in simulation.years],
+        "heat_days": [float(item.heat_stress_days) for item in simulation.years],
+        "annual_cash_yen": [float(item.annual_cash_yen) for item in simulation.years],
+        "passes": [item.passes for item in simulation.years],
+        "investment_events": [
+            {"year": item.year, "amount_yen": float(item.investment_capex_yen)}
+            for item in simulation.years if item.investment_capex_yen > ZERO
+        ],
+    }
+
+
+def failure_label_ja(condition: str | None) -> str:
+    return {
+        "heat_exposure_limit": "未送風の牛床に対する暑熱負荷が上限を超える",
+        "maximum_debt_exceeded": "借入上限を超える",
+        "minimum_annual_cash_not_met": "年間の運営余力が下限を下回る",
+        "cash_reserve_depleted": "手元資金が不足する",
+        None: "期間内に大きな制約はありません",
+    }.get(condition, condition or "期間内に大きな制約はありません")
+
+
 def build_dashboard(submitted: dict[str, Any] | None = None) -> dict[str, Any]:
     farm, climate = load_farm_and_climate()
     future_climate = load_future_climate()
@@ -421,12 +530,42 @@ def build_dashboard(submitted: dict[str, Any] | None = None) -> dict[str, Any]:
             ):
                 model_range_unstable = True
                 break
+    annual_conditions = _year_conditions_from_values(values, farm, future_climate)
+    future_inputs = _future_inputs(
+        values,
+        parsed,
+        farm,
+        sum(len(slots) for slots in stage_one_by_lane.values()),
+    )
+    recommendation = recommend_timing(future_inputs, annual_conditions)
+    years = tuple(item.year for item in annual_conditions)
+    if submitted is None:
+        selected_timing = recommendation.timing
+        values["stage_one_year"] = str(selected_timing.stage_one_year or "none")
+        values["full_installation_year"] = str(selected_timing.full_installation_year or "none")
+    else:
+        selected_timing = InvestmentTiming(
+            stage_one_year=_timing_value(values["stage_one_year"], years, "stage-one year"),
+            full_installation_year=_timing_value(values["full_installation_year"], years, "full-installation year"),
+        )
+    try:
+        future_simulation = simulate_future(future_inputs, annual_conditions, selected_timing)
+        current_future_simulation = simulate_future(future_inputs, annual_conditions, InvestmentTiming())
+    except FutureScenarioValidationError as exc:
+        raise InputValidationError(str(exc)) from exc
     return {
         "farm": farm,
         "climate": climate,
         "future_climate": future_climate,
         "heat_context": heat_context,
         "model_range_unstable": model_range_unstable,
+        "future_simulation": future_simulation,
+        "current_future_simulation": current_future_simulation,
+        "future_recommendation": recommendation,
+        "future_planning_assumptions": farm["future_planning_assumptions"],
+        "timeline_years": years,
+        "timeline_chart": _future_chart_data(future_simulation),
+        "failure_label_ja": failure_label_ja,
         "values": values,
         "layout": layout,
         "plans": plans,

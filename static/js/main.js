@@ -1,4 +1,5 @@
 import { createBarnViewer } from './barn-viewer.js';
+import { createTimelineChart } from './timeline-chart.js';
 
 const layout = JSON.parse(document.querySelector('#layout-data').textContent);
 const cowIdByInstanceId = JSON.parse(document.querySelector('#cow-id-by-instance-id').textContent);
@@ -11,3 +12,9 @@ createBarnViewer(document.querySelector('#barn-viewer'), layout, cowIdByInstance
     detail.textContent = `ファン：${selection.fanId} ／ 第${selection.lane}牛床列 ／ 対象牛：${selection.cowIds.join(', ')}`;
   }
 });
+
+const timeline = document.querySelector('#timeline-chart-data');
+const timelineContainer = document.querySelector('#timeline-chart');
+if (timeline && timelineContainer) {
+  createTimelineChart(timelineContainer, JSON.parse(timeline.textContent));
+}

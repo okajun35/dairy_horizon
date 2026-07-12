@@ -113,11 +113,16 @@ class ClimateProfileTest(unittest.TestCase):
         self.assertIn("required_avoided_milk_loss_kg_per_cow_day", conditions)
         self.assertIn("required_milk_price_yen_per_kg", conditions)
 
-    def test_web_distinguishes_observation_projection_and_unstable_models(self) -> None:
+    def test_web_shows_projection_timeline_and_investment_timing_controls(self) -> None:
         response = CLIENT.get("/")
         self.assertEqual(200, response.status_code)
-        self.assertIn("2024年の気象庁観測", response.text)
-        self.assertIn("複数気候モデルによる予測シナリオ", response.text)
+        self.assertIn("2026〜2034年の見通し", response.text)
+        self.assertIn("気候モデルのシナリオ", response.text)
+        self.assertIn('name="stage_one_year"', response.text)
+        self.assertIn('name="annual_cash_before_heat_yen"', response.text)
+        self.assertIn('value="1600000"', response.text)
+        self.assertIn('name="maximum_debt_yen"', response.text)
+        self.assertIn('id="timeline-chart"', response.text)
         response = CLIENT.post(
             "/",
             data={
@@ -125,24 +130,13 @@ class ClimateProfileTest(unittest.TestCase):
                 "milk_price_yen_per_kg": "170", "variable_cost_ratio_pct": "60",
                 "avoided_milk_loss_kg_per_cow_day": "3", "electricity_price_yen_per_kwh": "27",
                 "installed_cost_yen_per_unit": "220000", "evaluation_period_years": "5",
-                "climate_year": "2034", "selected_plan": "full_installation",
+                "climate_year": "2034", "stage_one_year": "2028", "full_installation_year": "2029",
+                "milk_price_change_yen_per_kg_per_year": "0", "electricity_price_change_pct_per_year": "0",
+                "selected_plan": "full_installation",
             },
         )
         self.assertEqual(200, response.status_code)
-        self.assertIn("モデル間で結論が分かれます", response.text)
-
-        response = CLIENT.post(
-            "/",
-            data={
-                "lactating_cows": "60", "lane_count": "2", "existing_fan_count": "10",
-                "milk_price_yen_per_kg": "135", "variable_cost_ratio_pct": "60",
-                "avoided_milk_loss_kg_per_cow_day": "3", "electricity_price_yen_per_kwh": "27",
-                "installed_cost_yen_per_unit": "220000", "evaluation_period_years": "5",
-                "climate_year": "2025", "selected_plan": "full_installation",
-            },
-        )
-        self.assertEqual(200, response.status_code)
-        self.assertIn("成立に近づく条件", response.text)
+        self.assertIn("2028年 第1期 → 2029年 全数整備", response.text)
 
 
 if __name__ == "__main__":

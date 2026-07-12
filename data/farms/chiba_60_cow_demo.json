@@ -28,5 +28,20 @@
     "heat_stress_days_per_year": 120,
     "heat_stress_days_source": "zenrakuren_cow_bell_178_demo"
   },
+  "future_planning_assumptions": {
+    "timeline_start_year": 2026,
+    "timeline_end_year": 2034,
+    "existing_fans_service_until_year": 2032,
+    "annual_cash_before_heat_yen": 1600000,
+    "starting_cash_reserve_yen": 1000000,
+    "maximum_debt_yen": 2500000,
+    "minimum_annual_cash_yen": 0,
+    "maximum_uncovered_cow_heat_days": 3200,
+    "milk_price_change_yen_per_kg_per_year": 0,
+    "electricity_price_change_pct_per_year": 0,
+    "provenance_kind": "demo_assumption",
+    "source_id": "chiba_60_cow_future_planning_demo",
+    "explanation_ja": "年次の現金余力、借入上限、既存ファンの残存期間は、実際の決算・借入条件を受け取るまでのデモ仮定です。"
+  },
   "evaluation_period_years": 5
 }

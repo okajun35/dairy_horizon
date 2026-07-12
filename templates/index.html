@@ -7,93 +7,83 @@
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
 </head>
 <body>
+  {% set values = dashboard["values"] %}
+  {% set future = dashboard["future_simulation"] %}
+  {% set current = dashboard["current_future_simulation"] %}
+  {% set recommendation = dashboard["future_recommendation"] %}
   <main>
-    {% set values = dashboard["values"] %}
     <header>
-      <p class="eyebrow">Dairy Horizon · 地域の暑熱から行動を選ぶ</p>
-      <h1>千葉市の暑熱変化に、牛舎の対応を重ねる</h1>
-      <p>基準：千葉・2024年の気象庁観測。将来：2025〜2034年の複数気候モデルによる予測シナリオ。観測と予測を同じ種類のデータとして扱いません。</p>
+      <p class="eyebrow">Dairy Horizon · 農場のこれからを考える</p>
+      <h1>いつ動けば、農場の選択肢を守りやすいか</h1>
+      <p>地域の暑熱変化と農場の条件を年表で重ね、投資の時期を試すためのスクリーニングです。</p>
     </header>
 
     {% if error %}<p class="error">入力を確認してください：{{ error }}</p>{% endif %}
 
-    <section class="panel climate-panel">
-      <div><p class="section-kicker">1. 地域の将来暑熱</p><h2>暑熱対象日数を選ぶ</h2></div>
-      <form method="post" class="inputs">
-        <label>地域<select disabled><option>千葉市（生成済みプロファイル）</option></select></label>
-        <label>時点<select name="climate_year"><option value="2024" {% if values.climate_year == '2024' %}selected{% endif %}>2024：全酪連120日例</option>{% for year in dashboard.future_climate.years.keys() %}<option value="{{ year }}" {% if values.climate_year == year %}selected{% endif %}>{{ year }}：気候モデル予測</option>{% endfor %}</select></label>
+    <section class="decision-summary">
+      <article><p>このままの見通し</p><strong>{{ current.choice_horizon_years }}年</strong><span>{% if current.first_failing_year %}{{ current.first_failing_year }}年：{{ dashboard.failure_label_ja(current.first_failing_condition) }}{% else %}2034年まで大きな制約なし{% endif %}</span></article>
+      <article class="recommended"><p>おすすめの時期</p><strong>{{ recommendation.action_summary_ja }}</strong><span>選択肢を保てる見通し：{{ recommendation.choice_horizon_years }}年／投資目安 {{ money(recommendation.total_investment_yen) }}</span></article>
+      <article><p>いま試している案</p><strong>{% if future.timing.stage_one_year %}{{ future.timing.stage_one_year }}年 第1期{% endif %}{% if future.timing.stage_one_year and future.timing.full_installation_year %} → {% endif %}{% if future.timing.full_installation_year %}{{ future.timing.full_installation_year }}年 全数整備{% endif %}{% if not future.timing.stage_one_year and not future.timing.full_installation_year %}追加投資なし{% endif %}</strong><span>選択肢を保てる見通し：{{ future.choice_horizon_years }}年</span></article>
+    </section>
+
+    <section class="panel input-panel">
+      <p class="section-kicker">まずは農場の確認</p><h2>初期値から始めて、違うところだけ直してください</h2>
+      <form method="post" class="inputs simple-inputs">
+        <input name="climate_year" type="hidden" value="2030">
+        <input name="selected_plan" type="hidden" value="full_installation">
+        <label>地域<input value="千葉市" disabled><small>気候モデル予測を使用</small></label>
         <label>搾乳牛頭数<input name="lactating_cows" type="number" min="1" max="300" value="{{ values.lactating_cows }}"></label>
         <label>牛床列数<select name="lane_count">{% for count in [1, 2] %}<option value="{{ count }}" {% if values.lane_count == count|string %}selected{% endif %}>{{ count }}列</option>{% endfor %}</select></label>
-        <label>既存ファン数<input name="existing_fan_count" type="number" min="0" value="{{ values.existing_fan_count }}"></label>
-        <label>乳価（円/kg）<input name="milk_price_yen_per_kg" type="number" min="0" max="300" step="1" value="{{ values.milk_price_yen_per_kg }}"></label>
-        <label>変動費率（%）<input name="variable_cost_ratio_pct" type="number" min="0" max="100" step="0.1" value="{{ values.variable_cost_ratio_pct }}"></label>
-        <label>防げると仮定した乳量（kg/頭/日）<input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" max="20" step="0.1" value="{{ values.avoided_milk_loss_kg_per_cow_day }}"></label>
-        <label>電力量単価（円/kWh）<input name="electricity_price_yen_per_kwh" type="number" min="0" step="1" value="{{ values.electricity_price_yen_per_kwh }}"></label>
-        <label>1台当たり導入費（円）<input name="installed_cost_yen_per_unit" type="number" min="0" step="1000" value="{{ values.installed_cost_yen_per_unit }}"></label>
-        <label>何年で回収したいか<input name="evaluation_period_years" type="number" min="1" max="30" value="{{ values.evaluation_period_years }}"></label>
-        <label>見積文に使う案<select name="selected_plan">{% for key in ['stage_1', 'full_installation'] %}<option value="{{ key }}" {% if values.selected_plan == key %}selected{% endif %}>{{ dashboard.plans[key].label_ja }}</option>{% endfor %}</select></label>
-        <button type="submit">地域条件で見直す</button>
+        <label>既存ファン数<input name="existing_fan_count" type="number" min="0" value="{{ values.existing_fan_count }}"><small>位置は仮配置で推計</small></label>
+        <label>第1期を入れる年<select name="stage_one_year"><option value="none" {% if values.stage_one_year == 'none' %}selected{% endif %}>入れない</option>{% for year in dashboard.timeline_years %}<option value="{{ year }}" {% if values.stage_one_year == year|string %}selected{% endif %}>{{ year }}年</option>{% endfor %}</select></label>
+        <label>全数整備する年<select name="full_installation_year"><option value="none" {% if values.full_installation_year == 'none' %}selected{% endif %}>入れない</option>{% for year in dashboard.timeline_years %}<option value="{{ year }}" {% if values.full_installation_year == year|string %}selected{% endif %}>{{ year }}年</option>{% endfor %}</select></label>
+        <button type="submit">この時期で試す</button>
+
+        <details class="advanced-inputs"><summary>初期値を確認・変更する（乳価・資金・設備）</summary><div class="inputs">
+          <label>いまの乳価（円/kg）<input name="milk_price_yen_per_kg" type="number" min="0" max="300" step="1" value="{{ values.milk_price_yen_per_kg }}"></label>
+          <label>乳価の年変化（円/kg・年）<input name="milk_price_change_yen_per_kg_per_year" type="number" min="-100" max="100" step="1" value="{{ values.milk_price_change_yen_per_kg_per_year }}"></label>
+          <label>電力量単価（円/kWh）<input name="electricity_price_yen_per_kwh" type="number" min="0" step="1" value="{{ values.electricity_price_yen_per_kwh }}"></label>
+          <label>電気代の年変化（%）<input name="electricity_price_change_pct_per_year" type="number" min="0" max="100" step="1" value="{{ values.electricity_price_change_pct_per_year }}"></label>
+          <label>変動費率（%）<input name="variable_cost_ratio_pct" type="number" min="0" max="100" step="0.1" value="{{ values.variable_cost_ratio_pct }}"></label>
+          <label>防げると仮定した乳量（kg/頭/日）<input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" max="20" step="0.1" value="{{ values.avoided_milk_loss_kg_per_cow_day }}"></label>
+          <label>1台当たり導入費（円）<input name="installed_cost_yen_per_unit" type="number" min="0" step="1000" value="{{ values.installed_cost_yen_per_unit }}"></label>
+          <label>回収をみる年数<input name="evaluation_period_years" type="number" min="1" max="30" value="{{ values.evaluation_period_years }}"></label>
+          <label>暑熱前の年間運営余力（円）<input name="annual_cash_before_heat_yen" type="number" min="0" step="100000" value="{{ values.annual_cash_before_heat_yen }}"><small>決算値が分かれば置換</small></label>
+          <label>いま使える手元資金（円）<input name="starting_cash_reserve_yen" type="number" min="0" step="100000" value="{{ values.starting_cash_reserve_yen }}"></label>
+          <label>借入上限（円）<input name="maximum_debt_yen" type="number" min="0" step="100000" value="{{ values.maximum_debt_yen }}"></label>
+          <label>最低限残したい年間余力（円）<input name="minimum_annual_cash_yen" type="number" min="0" step="100000" value="{{ values.minimum_annual_cash_yen }}"></label>
+          <label>既存ファンを使える最終年<input name="existing_fans_service_until_year" type="number" min="2026" max="2050" step="1" value="{{ values.existing_fans_service_until_year }}"></label>
+          <label>許容する未送風の暑熱負荷<input name="maximum_uncovered_cow_heat_days" type="number" min="0" step="100" value="{{ values.maximum_uncovered_cow_heat_days }}"><small>分からなければ初期値のまま</small></label>
+        </div></details>
       </form>
-      <div class="heat-result">
-        <strong>{{ dashboard.heat_context.label_ja }}</strong>
-        {% if dashboard.heat_context.uses_demo_days %}
-          <span>暑熱対象日数：{{ dashboard.heat_context.heat_stress_days_median }}日（農場側のデモ仮定）</span>
-        {% else %}
-          <span>投資計算に使う日数：日平均THI 72以上の日数・モデル中央値 {{ dashboard.heat_context.heat_stress_days_median }}日</span>
-          <span>モデル範囲：{{ dashboard.heat_context.heat_stress_days_minimum }}〜{{ dashboard.heat_context.heat_stress_days_maximum }}日</span>
-        {% endif %}
-      </div>
-      <p class="observed-reference"><strong>2024年観測の参照：</strong>気象庁・{{ dashboard.climate.station_name_ja }}、THI 68以上 {{ dashboard.climate.observed_thi_summary.hours_thi_ge_68 }}時間／THI 80以上 {{ dashboard.climate.observed_thi_summary.hours_thi_ge_80 }}時間／最大THI {{ dashboard.climate.observed_thi_summary.max_thi }}。これは観測時点の別指標で、将来モデルの年表と同じ系列ではありません。</p>
-      {% if dashboard.model_range_unstable %}<p class="uncertain">モデル間で結論が分かれます。下限・上限の暑熱対象日数でも同じ投資計算を確認してください。</p>{% endif %}
-      <details><summary>2025〜2034年の予測シナリオ年表（モデル中央値［最小〜最大］）</summary>
-        <div class="table-wrap"><table><thead><tr><th>年</th><th>日平均THI 72以上の日数</th><th>日最高30℃以上の日数</th><th>最大連続THI日数</th></tr></thead><tbody>
-        {% for year, row in dashboard.future_climate.years.items() %}<tr><td>{{ year }}</td><td>{{ row.summary.thi_days_daily_mean_ge_72.median }}［{{ row.summary.thi_days_daily_mean_ge_72.minimum }}〜{{ row.summary.thi_days_daily_mean_ge_72.maximum }}］</td><td>{{ row.summary.hot_days_temperature_max_ge_30.median }}［{{ row.summary.hot_days_temperature_max_ge_30.minimum }}〜{{ row.summary.hot_days_temperature_max_ge_30.maximum }}］</td><td>{{ row.summary.max_consecutive_thi_days.median }}［{{ row.summary.max_consecutive_thi_days.minimum }}〜{{ row.summary.max_consecutive_thi_days.maximum }}］</td></tr>{% endfor %}
-        </tbody></table></div>
-      </details>
+      <p class="subtle">必要ファン {{ dashboard.target_fan_count }} 台／いま不足 {{ dashboard.additional_fan_count }} 台。既存ファンの位置と新規被覆頭数は均等配置の仮定による推計です。</p>
+    </section>
+
+    <section class="panel timeline-panel">
+      <p class="section-kicker">農場のこれから</p><h2>2026〜2034年の見通し</h2>
+      <p>上段の橙色の棒は、年ごとの暑熱日数です。棒の上に日数を表示します。下段の緑線は暑熱損失と追加電気代を引いた年間の運営余力です。縦線は投資を置いた年です。</p>
+      <div id="timeline-chart" aria-label="暑熱日数と年間運営余力の年次グラフ"></div>
+      <p class="warning">将来の暑熱は気候モデルのシナリオです。乳価・電気代・現金余力・借入上限・既存設備の残存期間は、上の「初期値を確認・変更する」で実情に合わせて直せます。</p>
+      <div class="table-wrap"><table class="timeline-table"><thead><tr><th>年</th><th>暑熱日数</th><th>乳価</th><th>投資</th><th>守れる牛</th><th>年間の運営余力</th><th>判定</th></tr></thead><tbody>{% for row in future.years %}<tr class="{% if not row.passes %}timeline-fail{% endif %}"><td>{{ row.year }}</td><td>{{ number(row.heat_stress_days, '0.0') }}日</td><td>{{ number(row.milk_price_yen_per_kg, '0.0') }}円/kg</td><td>{% if row.investment_capex_yen > 0 %}{{ money(row.investment_capex_yen) }}{% else %}—{% endif %}</td><td>{{ dashboard.farm.barn_input.lactating_cows - row.uncovered_cow_count }}頭</td><td>{{ money(row.annual_cash_yen) }}</td><td>{% if row.passes %}継続しやすい{% else %}{{ dashboard.failure_label_ja(row.failing_condition) }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+    </section>
+
+    <section class="panel action-panel">
+      <p class="section-kicker">次の行動</p><h2>{% if future.first_failing_year %}{{ future.first_failing_year }}年より前に、暑熱対策の準備を始める{% else %}2034年までの計画を、毎年見直す{% endif %}</h2>
+      <p>{% if future.first_failing_year %}最初に注意が必要になる条件は「{{ dashboard.failure_label_ja(future.first_failing_condition) }}」です。{% else %}現在の設定では、期間内に設定した制約を超えません。{% endif %}</p>
+      <ul><li>見積では、横臥時の牛体付近で目標風速2m/s以上となる配置を確認する。</li><li>既存ファンの年式・故障歴を確認し、{{ values.existing_fans_service_until_year }}年以降の更新も見積に含める。</li><li>実際の決算・借入条件が分かれば、「初期値を確認・変更する」の数値を置き換える。</li></ul>
     </section>
 
     <section class="panel viewer-panel">
-      <div><p class="section-kicker">2. 牛舎の不足</p><h2>既存・第1期・全数追加で守る牛</h2><p>青：既存仮配置、橙：第1期で追加、灰：全数追加で必要な位置。必要ファン {{ dashboard.target_fan_count }} 台／不足 {{ dashboard.additional_fan_count }} 台。牛床列ごとの頭数：{{ dashboard.cows_by_lane | join('頭・') }}頭。</p></div>
+      <div><p class="section-kicker">牛舎の不足を確認</p><h2>2.5D牛舎配置</h2><p>青：既存仮配置、橙：第1期で追加、灰：不足位置です。</p></div>
       <div id="barn-viewer" aria-label="牛舎の2.5D配置図"></div>
       <p id="selection-detail" class="selection">牛またはファンを選択してください。</p>
-      <p class="warning">既存ファンの位置と新規被覆頭数は、台数から均等配置した仮配置に基づく推計です。現地の実測配置ではありません。</p>
     </section>
 
-    <section>
-      <p class="section-kicker">3. 段階対応と成立条件</p><h2>どの行動なら、運営の選択肢を守りやすいか</h2>
-      <div class="cards">
-      {% for key in ['baseline', 'stage_1', 'full_installation'] %}
-        {% set plan = dashboard.plans[key] %}
-        <article class="card {% if plan.preserves_requested_window %}pass{% elif plan.preserves_requested_window == false %}fail{% endif %}">
-          <h3>{{ plan.label_ja }}</h3>
-          {% if plan.plan_status == 'comparison_only' %}<p class="status">比較用：追加投資の判定はしません。</p>
-          {% elif plan.plan_status == 'no_additional_investment_required' %}<p class="status">必要ファン数を満たしているため、追加投資は不要です。</p>
-          {% elif plan.preserves_requested_window %}<p class="status">この条件では、{{ values.evaluation_period_years }}年で回収できる目安です。</p>
-          {% else %}<p class="status">標準の仮定では回収が難しい案です。</p>{% endif %}
-          <dl>
-            <dt>追加ファン数</dt><dd>{{ plan.incremental_fan_count }} 台</dd>
-            <dt>新規に守る牛</dt><dd>{{ plan.newly_covered_cow_count }} 頭（仮配置の推計）</dd>
-            <dt>導入費</dt><dd>{{ money(plan.incremental_capex_yen) }}</dd>
-            <dt>増分年間電気代</dt><dd>{{ money(plan.incremental_electricity_cost_yen) }}</dd>
-            <dt>防げると仮定した乳量</dt><dd>{{ values.avoided_milk_loss_kg_per_cow_day }} kg/頭/日</dd>
-            <dt>回収に必要な防止乳量</dt><dd>{% if plan.break_even_status == 'calculable' %}{{ number(plan.break_even_milk_yield_kg_per_cow_day) }} kg/頭/日{% elif plan.break_even_status == 'recovery_impossible' %}回収不能（{{ plan.break_even_reason }}）{% else %}—{% endif %}</dd>
-            <dt>この条件で払える目安</dt><dd>{{ money(plan.maximum_affordable_capex_yen) }}</dd>
-            <dt>目安より</dt><dd>{% if plan.investment_margin_yen is not none %}{{ money(plan.investment_margin_yen|abs) }} {% if plan.investment_margin_yen >= 0 %}低い{% else %}高い{% endif %}{% else %}—{% endif %}</dd>
-          </dl>
-          {% if plan.conditions_to_approach_feasibility %}<div class="conditions"><h4>成立に近づく条件</h4><ul><li>1台当たり導入費を {{ money(plan.conditions_to_approach_feasibility.required_installed_cost_yen_per_unit) }} 以下に（あと {{ money(plan.conditions_to_approach_feasibility.cost_reduction_yen_per_unit) }} 下げる目安）</li><li>防げると仮定した乳量を {{ number(plan.conditions_to_approach_feasibility.required_avoided_milk_loss_kg_per_cow_day) }} kg/頭/日まで（あと {{ number(plan.conditions_to_approach_feasibility.additional_avoided_milk_loss_kg_per_cow_day) }}）</li><li>必要乳価：{% if plan.conditions_to_approach_feasibility.required_milk_price_yen_per_kg is not none %}{{ money(plan.conditions_to_approach_feasibility.required_milk_price_yen_per_kg) }}/kg{% else %}防止乳量の仮定が0のため算出不可{% endif %}</li></ul></div>{% endif %}
-          <details><summary>計算の詳細</summary><p>正式用語：許容投資上限、収支分岐点乳量、評価期間。最初の不成立条件：{{ plan.first_failing_condition or 'なし' }}</p></details>
-          {% if plan.newly_covered_cow_ids %}<details><summary>新規被覆牛ID（{{ plan.newly_covered_cow_ids|length }}頭）</summary><p>{{ plan.newly_covered_cow_ids|join(', ') }}</p></details>{% endif %}
-        </article>
-      {% endfor %}
-      </div>
-    </section>
-
-    <section class="panel"><h2>乳価感度（簡易表）</h2><div class="table-wrap"><table><thead><tr><th>乳価</th><th>第1期：必要防止乳量</th><th>第1期：払える目安</th><th>全数：必要防止乳量</th><th>全数：払える目安</th></tr></thead><tbody>{% for row in dashboard.sensitivity %}<tr><td>{{ row.price }}円/kg（{{ row.labels|join('、') }}）</td>{% for key in ['stage_1', 'full_installation'] %}{% set plan = row.plans[key] %}<td>{% if plan.break_even_status == 'calculable' %}{{ number(plan.break_even_milk_yield_kg_per_cow_day) }}{% else %}—{% endif %}</td><td>{{ money(plan.maximum_affordable_capex_yen) }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>
-    <section class="panel"><h2>見積依頼文（下書き）</h2><textarea readonly rows="8">{{ dashboard.quote_request }}</textarea></section>
-    <section class="panel assumptions"><h2>前提・出典と限界</h2><ul><li>2024年観測：気象庁・{{ dashboard.climate.station_name_ja }}観測地点。将来予測とは区別し、投資計算には直接使いません。</li><li>2024年の120日は気象観測から出した日数ではなく、全酪連年間計画例による農場側のデモ仮定です。</li><li>将来値はOpen-Meteo Climate APIのCMIP6由来・複数モデルの予測シナリオです。日平均THIはスクリーニング指標であり、日最高THI・個体診断・実測乳量の代替ではありません。</li><li>屋外10m風速は牛体付近風速ではなく、投資計算にも使いません。</li><li>これはスクリーニング推計であり、最終的な設備・融資判断ではありません。</li></ul></section>
+    <section class="panel assumptions"><h2>計算の詳細と出典</h2><ul><li>2024年観測：気象庁・{{ dashboard.climate.station_name_ja }}。将来シナリオとは別の観測系列です。</li><li>2026〜2034年の暑熱日数：Open-Meteo Climate APIのCMIP6由来・複数モデルの中央値。日平均THIはスクリーニング用で、日最高THIや個体診断の代替ではありません。</li><li>「運営余力」は年次シナリオ用のデモ仮定で、融資審査や税務判断ではありません。</li><li>参考：現在の全数追加案の単年計算状態 {{ dashboard.plans.full_installation.break_even_reason or 'calculable' }}。</li></ul></section>
   </main>
   <script id="layout-data" type="application/json">{{ layout_json | safe }}</script>
   <script id="cow-id-by-instance-id" type="application/json">{{ cow_id_by_instance_id | safe }}</script>
+  <script id="timeline-chart-data" type="application/json">{{ dashboard.timeline_chart | tojson }}</script>
   <script type="module" src="{{ url_for('static', path='js/main.js') }}"></script>
 </body>
 </html>
