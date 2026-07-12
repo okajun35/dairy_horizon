@@ -1,0 +1,66 @@
+{
+  "template_id": "tie_stall_variable_v2",
+  "label_ja": "可変つなぎ牛舎テンプレート",
+  "supported_ranges": {
+    "lactating_cows": {
+      "min": 1,
+      "max": 200,
+      "default": 60
+    },
+    "row_count": {
+      "allowed": [
+        1,
+        2
+      ],
+      "default": 2
+    },
+    "existing_fan_count": {
+      "min": 0,
+      "max": 100,
+      "default": 10
+    },
+    "existing_fan_age_years": {
+      "min": 0,
+      "max": 40,
+      "default": 12
+    }
+  },
+  "geometry_defaults": {
+    "stall_pitch_m": 1.2,
+    "end_margin_total_m": 6.0,
+    "row_y_positions_m": {
+      "1": [
+        4.0
+      ],
+      "2": [
+        4.0,
+        10.0
+      ]
+    },
+    "barn_width_m_by_row_count": {
+      "1": 8.0,
+      "2": 14.0
+    },
+    "fan_height_m": 2.5,
+    "fan_angle_deg": 15.0
+  },
+  "fan_policy": {
+    "target_cows_per_fan": 3,
+    "target_air_speed_at_cow_mps": 2.0,
+    "target_fans_calculation": "sum(ceil(cows_in_each_row / target_cows_per_fan))",
+    "source_kind": "industry_guidance",
+    "source_id": "zenrakuren_cowbell_178"
+  },
+  "provenance": {
+    "stall_pitch_m": {
+      "kind": "demo_assumption",
+      "note": "Actual dimensions must replace this in production."
+    },
+    "end_margin_total_m": {
+      "kind": "demo_assumption"
+    },
+    "row_y_positions_m": {
+      "kind": "display_layout_assumption"
+    }
+  }
+}

@@ -1,0 +1,705 @@
+{
+  "input": {
+    "lactating_cows": 60,
+    "row_count": 2,
+    "existing_fan_count": 10
+  },
+  "derived": {
+    "cows_per_row": [
+      30,
+      30
+    ],
+    "estimated_length_m": 42.0,
+    "estimated_width_m": 14.0,
+    "target_fans_per_row": [
+      10,
+      10
+    ],
+    "target_fan_count": 20,
+    "additional_fan_count": 10
+  },
+  "cows": [
+    {
+      "cow_id": "R1-C001",
+      "row": 1,
+      "stall": 1,
+      "x_m": 3.0,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C002",
+      "row": 1,
+      "stall": 2,
+      "x_m": 4.2,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C003",
+      "row": 1,
+      "stall": 3,
+      "x_m": 5.4,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C004",
+      "row": 1,
+      "stall": 4,
+      "x_m": 6.6,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C005",
+      "row": 1,
+      "stall": 5,
+      "x_m": 7.8,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C006",
+      "row": 1,
+      "stall": 6,
+      "x_m": 9.0,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C007",
+      "row": 1,
+      "stall": 7,
+      "x_m": 10.2,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C008",
+      "row": 1,
+      "stall": 8,
+      "x_m": 11.4,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C009",
+      "row": 1,
+      "stall": 9,
+      "x_m": 12.6,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C010",
+      "row": 1,
+      "stall": 10,
+      "x_m": 13.8,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C011",
+      "row": 1,
+      "stall": 11,
+      "x_m": 15.0,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C012",
+      "row": 1,
+      "stall": 12,
+      "x_m": 16.2,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C013",
+      "row": 1,
+      "stall": 13,
+      "x_m": 17.4,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C014",
+      "row": 1,
+      "stall": 14,
+      "x_m": 18.6,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C015",
+      "row": 1,
+      "stall": 15,
+      "x_m": 19.8,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C016",
+      "row": 1,
+      "stall": 16,
+      "x_m": 21.0,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C017",
+      "row": 1,
+      "stall": 17,
+      "x_m": 22.2,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C018",
+      "row": 1,
+      "stall": 18,
+      "x_m": 23.4,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C019",
+      "row": 1,
+      "stall": 19,
+      "x_m": 24.6,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C020",
+      "row": 1,
+      "stall": 20,
+      "x_m": 25.8,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C021",
+      "row": 1,
+      "stall": 21,
+      "x_m": 27.0,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C022",
+      "row": 1,
+      "stall": 22,
+      "x_m": 28.2,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C023",
+      "row": 1,
+      "stall": 23,
+      "x_m": 29.4,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C024",
+      "row": 1,
+      "stall": 24,
+      "x_m": 30.6,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C025",
+      "row": 1,
+      "stall": 25,
+      "x_m": 31.8,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C026",
+      "row": 1,
+      "stall": 26,
+      "x_m": 33.0,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C027",
+      "row": 1,
+      "stall": 27,
+      "x_m": 34.2,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C028",
+      "row": 1,
+      "stall": 28,
+      "x_m": 35.4,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C029",
+      "row": 1,
+      "stall": 29,
+      "x_m": 36.6,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R1-C030",
+      "row": 1,
+      "stall": 30,
+      "x_m": 37.8,
+      "y_m": 4.0
+    },
+    {
+      "cow_id": "R2-C001",
+      "row": 2,
+      "stall": 1,
+      "x_m": 3.0,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C002",
+      "row": 2,
+      "stall": 2,
+      "x_m": 4.2,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C003",
+      "row": 2,
+      "stall": 3,
+      "x_m": 5.4,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C004",
+      "row": 2,
+      "stall": 4,
+      "x_m": 6.6,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C005",
+      "row": 2,
+      "stall": 5,
+      "x_m": 7.8,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C006",
+      "row": 2,
+      "stall": 6,
+      "x_m": 9.0,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C007",
+      "row": 2,
+      "stall": 7,
+      "x_m": 10.2,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C008",
+      "row": 2,
+      "stall": 8,
+      "x_m": 11.4,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C009",
+      "row": 2,
+      "stall": 9,
+      "x_m": 12.6,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C010",
+      "row": 2,
+      "stall": 10,
+      "x_m": 13.8,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C011",
+      "row": 2,
+      "stall": 11,
+      "x_m": 15.0,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C012",
+      "row": 2,
+      "stall": 12,
+      "x_m": 16.2,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C013",
+      "row": 2,
+      "stall": 13,
+      "x_m": 17.4,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C014",
+      "row": 2,
+      "stall": 14,
+      "x_m": 18.6,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C015",
+      "row": 2,
+      "stall": 15,
+      "x_m": 19.8,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C016",
+      "row": 2,
+      "stall": 16,
+      "x_m": 21.0,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C017",
+      "row": 2,
+      "stall": 17,
+      "x_m": 22.2,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C018",
+      "row": 2,
+      "stall": 18,
+      "x_m": 23.4,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C019",
+      "row": 2,
+      "stall": 19,
+      "x_m": 24.6,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C020",
+      "row": 2,
+      "stall": 20,
+      "x_m": 25.8,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C021",
+      "row": 2,
+      "stall": 21,
+      "x_m": 27.0,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C022",
+      "row": 2,
+      "stall": 22,
+      "x_m": 28.2,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C023",
+      "row": 2,
+      "stall": 23,
+      "x_m": 29.4,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C024",
+      "row": 2,
+      "stall": 24,
+      "x_m": 30.6,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C025",
+      "row": 2,
+      "stall": 25,
+      "x_m": 31.8,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C026",
+      "row": 2,
+      "stall": 26,
+      "x_m": 33.0,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C027",
+      "row": 2,
+      "stall": 27,
+      "x_m": 34.2,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C028",
+      "row": 2,
+      "stall": 28,
+      "x_m": 35.4,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C029",
+      "row": 2,
+      "stall": 29,
+      "x_m": 36.6,
+      "y_m": 10.0
+    },
+    {
+      "cow_id": "R2-C030",
+      "row": 2,
+      "stall": 30,
+      "x_m": 37.8,
+      "y_m": 10.0
+    }
+  ],
+  "fans": [
+    {
+      "fan_id": "TARGET-001",
+      "row_target": 1,
+      "x_m": 4.2,
+      "y_m": 2.5,
+      "target_stalls": [
+        1,
+        2,
+        3
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-002",
+      "row_target": 1,
+      "x_m": 7.8,
+      "y_m": 2.5,
+      "target_stalls": [
+        4,
+        5,
+        6
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-003",
+      "row_target": 1,
+      "x_m": 11.4,
+      "y_m": 2.5,
+      "target_stalls": [
+        7,
+        8,
+        9
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-004",
+      "row_target": 1,
+      "x_m": 15.0,
+      "y_m": 2.5,
+      "target_stalls": [
+        10,
+        11,
+        12
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-005",
+      "row_target": 1,
+      "x_m": 18.6,
+      "y_m": 2.5,
+      "target_stalls": [
+        13,
+        14,
+        15
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-006",
+      "row_target": 1,
+      "x_m": 22.2,
+      "y_m": 2.5,
+      "target_stalls": [
+        16,
+        17,
+        18
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-007",
+      "row_target": 1,
+      "x_m": 25.8,
+      "y_m": 2.5,
+      "target_stalls": [
+        19,
+        20,
+        21
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-008",
+      "row_target": 1,
+      "x_m": 29.4,
+      "y_m": 2.5,
+      "target_stalls": [
+        22,
+        23,
+        24
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-009",
+      "row_target": 1,
+      "x_m": 33.0,
+      "y_m": 2.5,
+      "target_stalls": [
+        25,
+        26,
+        27
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-010",
+      "row_target": 1,
+      "x_m": 36.6,
+      "y_m": 2.5,
+      "target_stalls": [
+        28,
+        29,
+        30
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-011",
+      "row_target": 2,
+      "x_m": 4.2,
+      "y_m": 11.5,
+      "target_stalls": [
+        1,
+        2,
+        3
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-012",
+      "row_target": 2,
+      "x_m": 7.8,
+      "y_m": 11.5,
+      "target_stalls": [
+        4,
+        5,
+        6
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-013",
+      "row_target": 2,
+      "x_m": 11.4,
+      "y_m": 11.5,
+      "target_stalls": [
+        7,
+        8,
+        9
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-014",
+      "row_target": 2,
+      "x_m": 15.0,
+      "y_m": 11.5,
+      "target_stalls": [
+        10,
+        11,
+        12
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-015",
+      "row_target": 2,
+      "x_m": 18.6,
+      "y_m": 11.5,
+      "target_stalls": [
+        13,
+        14,
+        15
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-016",
+      "row_target": 2,
+      "x_m": 22.2,
+      "y_m": 11.5,
+      "target_stalls": [
+        16,
+        17,
+        18
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-017",
+      "row_target": 2,
+      "x_m": 25.8,
+      "y_m": 11.5,
+      "target_stalls": [
+        19,
+        20,
+        21
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-018",
+      "row_target": 2,
+      "x_m": 29.4,
+      "y_m": 11.5,
+      "target_stalls": [
+        22,
+        23,
+        24
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    },
+    {
+      "fan_id": "TARGET-019",
+      "row_target": 2,
+      "x_m": 33.0,
+      "y_m": 11.5,
+      "target_stalls": [
+        25,
+        26,
+        27
+      ],
+      "installed_in_current_state": false,
+      "status": "additional"
+    },
+    {
+      "fan_id": "TARGET-020",
+      "row_target": 2,
+      "x_m": 36.6,
+      "y_m": 11.5,
+      "target_stalls": [
+        28,
+        29,
+        30
+      ],
+      "installed_in_current_state": true,
+      "status": "existing"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "status": "calculated",
+  "effective_milk_price_yen_per_kg": 135,
+  "effective_milk_price_yen_per_litre": 139.32,
+  "result": {
+    "capex_per_fan_yen": 220000,
+    "capex_per_cow_yen": 73333.33,
+    "annualized_capex_per_cow_yen": 10476.19,
+    "annual_operation_per_cow_yen": 9856.0,
+    "annual_burden_per_cow_yen": 20332.19,
+    "break_even_sales_per_cow_yen": 50830.48,
+    "break_even_milk_kg_per_cow_year": 376.522,
+    "break_even_milk_kg_per_cow_day": 3.1377
+  }
+}

@@ -1,0 +1,970 @@
+{
+  "profile_id": "chiba_city_2025_2034_climate_models",
+  "region_id": "chiba_city",
+  "region_name_ja": "千葉市",
+  "classification": "climate_model_projection_scenario",
+  "generated_at": "2026-07-12T12:42:09.332056+00:00",
+  "period": {
+    "start_year": 2025,
+    "end_year": 2034
+  },
+  "thi_definition": {
+    "formula": "NRC daily-mean screening THI",
+    "threshold": 72,
+    "temperature_source": "daily temperature_2m_mean",
+    "humidity_source": "daily relative_humidity_2m_mean",
+    "note_ja": "日平均値による時点整合したスクリーニング指標であり、日最高THIや個体診断ではありません。"
+  },
+  "aggregation_rules": {
+    "hot_days_temperature_max_ge_30": "daily temperature_2m_max >= 30°C",
+    "thi_days_daily_mean_ge_72": "daily mean NRC THI >= 72",
+    "max_consecutive_thi_days": "longest consecutive sequence of daily mean THI >= 72",
+    "outdoor_wind_note_ja": "屋外10m風速は牛体付近風速ではなく、投資計算にも使用しません。"
+  },
+  "source": {
+    "provider": "Open-Meteo Climate API",
+    "dataset": "CMIP6 climate model projections",
+    "provenance_kind": "official_projection_report"
+  },
+  "retrievals": [
+    {
+      "model": "CMCC_CM2_VHR4",
+      "status": "success",
+      "request_url": "https://climate-api.open-meteo.com/v1/climate?latitude=35.6074&longitude=140.1065&start_date=2025-01-01&end_date=2034-12-31&daily=temperature_2m_mean%2Ctemperature_2m_max%2Crelative_humidity_2m_mean%2Cwind_speed_10m_mean&models=CMCC_CM2_VHR4&wind_speed_unit=ms&timezone=Asia%2FTokyo",
+      "retrieved_at": "2026-07-12T12:42:09.332056+00:00",
+      "returned_latitude": 35.6,
+      "returned_longitude": 140.1,
+      "units": {
+        "time": "iso8601",
+        "temperature_2m_mean": "°C",
+        "temperature_2m_max": "°C",
+        "relative_humidity_2m_mean": "%",
+        "wind_speed_10m_mean": "m/s"
+      }
+    },
+    {
+      "model": "EC_Earth3P_HR",
+      "status": "success",
+      "request_url": "https://climate-api.open-meteo.com/v1/climate?latitude=35.6074&longitude=140.1065&start_date=2025-01-01&end_date=2034-12-31&daily=temperature_2m_mean%2Ctemperature_2m_max%2Crelative_humidity_2m_mean%2Cwind_speed_10m_mean&models=EC_Earth3P_HR&wind_speed_unit=ms&timezone=Asia%2FTokyo",
+      "retrieved_at": "2026-07-12T12:42:09.332056+00:00",
+      "returned_latitude": 35.6,
+      "returned_longitude": 140.1,
+      "units": {
+        "time": "iso8601",
+        "temperature_2m_mean": "°C",
+        "temperature_2m_max": "°C",
+        "relative_humidity_2m_mean": "%",
+        "wind_speed_10m_mean": "m/s"
+      }
+    },
+    {
+      "model": "FGOALS_f3_H",
+      "status": "success",
+      "request_url": "https://climate-api.open-meteo.com/v1/climate?latitude=35.6074&longitude=140.1065&start_date=2025-01-01&end_date=2034-12-31&daily=temperature_2m_mean%2Ctemperature_2m_max%2Crelative_humidity_2m_mean%2Cwind_speed_10m_mean&models=FGOALS_f3_H&wind_speed_unit=ms&timezone=Asia%2FTokyo",
+      "retrieved_at": "2026-07-12T12:42:09.332056+00:00",
+      "returned_latitude": 35.6,
+      "returned_longitude": 140.1,
+      "units": {
+        "time": "iso8601",
+        "temperature_2m_mean": "°C",
+        "temperature_2m_max": "°C",
+        "relative_humidity_2m_mean": "%",
+        "wind_speed_10m_mean": "m/s"
+      }
+    },
+    {
+      "model": "HiRAM_SIT_HR",
+      "status": "success",
+      "request_url": "https://climate-api.open-meteo.com/v1/climate?latitude=35.6074&longitude=140.1065&start_date=2025-01-01&end_date=2034-12-31&daily=temperature_2m_mean%2Ctemperature_2m_max%2Crelative_humidity_2m_mean%2Cwind_speed_10m_mean&models=HiRAM_SIT_HR&wind_speed_unit=ms&timezone=Asia%2FTokyo",
+      "retrieved_at": "2026-07-12T12:42:09.332056+00:00",
+      "returned_latitude": 35.6,
+      "returned_longitude": 140.1,
+      "units": {
+        "time": "iso8601",
+        "temperature_2m_mean": "°C",
+        "temperature_2m_max": "°C",
+        "relative_humidity_2m_mean": "%",
+        "wind_speed_10m_mean": "m/s"
+      }
+    },
+    {
+      "model": "MRI_AGCM3_2_S",
+      "status": "success",
+      "request_url": "https://climate-api.open-meteo.com/v1/climate?latitude=35.6074&longitude=140.1065&start_date=2025-01-01&end_date=2034-12-31&daily=temperature_2m_mean%2Ctemperature_2m_max%2Crelative_humidity_2m_mean%2Cwind_speed_10m_mean&models=MRI_AGCM3_2_S&wind_speed_unit=ms&timezone=Asia%2FTokyo",
+      "retrieved_at": "2026-07-12T12:42:09.332056+00:00",
+      "returned_latitude": 35.6,
+      "returned_longitude": 140.1,
+      "units": {
+        "time": "iso8601",
+        "temperature_2m_mean": "°C",
+        "temperature_2m_max": "°C",
+        "relative_humidity_2m_mean": "%",
+        "wind_speed_10m_mean": "m/s"
+      }
+    },
+    {
+      "model": "MPI_ESM1_2_XR",
+      "status": "success",
+      "request_url": "https://climate-api.open-meteo.com/v1/climate?latitude=35.6074&longitude=140.1065&start_date=2025-01-01&end_date=2034-12-31&daily=temperature_2m_mean%2Ctemperature_2m_max%2Crelative_humidity_2m_mean%2Cwind_speed_10m_mean&models=MPI_ESM1_2_XR&wind_speed_unit=ms&timezone=Asia%2FTokyo",
+      "retrieved_at": "2026-07-12T12:42:09.332056+00:00",
+      "returned_latitude": 35.6,
+      "returned_longitude": 140.1,
+      "units": {
+        "time": "iso8601",
+        "temperature_2m_mean": "°C",
+        "temperature_2m_max": "°C",
+        "relative_humidity_2m_mean": "%",
+        "wind_speed_10m_mean": "m/s"
+      }
+    },
+    {
+      "model": "NICAM16_8S",
+      "status": "failed",
+      "request_url": "https://climate-api.open-meteo.com/v1/climate?latitude=35.6074&longitude=140.1065&start_date=2025-01-01&end_date=2034-12-31&daily=temperature_2m_mean%2Ctemperature_2m_max%2Crelative_humidity_2m_mean%2Cwind_speed_10m_mean&models=NICAM16_8S&wind_speed_unit=ms&timezone=Asia%2FTokyo",
+      "retrieved_at": "2026-07-12T12:42:09.332056+00:00",
+      "error": "HTTP Error 429: Too Many Requests"
+    }
+  ],
+  "years": {
+    "2025": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 30,
+          "thi_days_daily_mean_ge_72": 88,
+          "max_consecutive_thi_days": 49,
+          "mean_temperature_c": 15.781,
+          "mean_relative_humidity_pct": 75.896,
+          "mean_outdoor_wind_speed_10m_mps": 4.053
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 30,
+          "thi_days_daily_mean_ge_72": 98,
+          "max_consecutive_thi_days": 49,
+          "mean_temperature_c": 16.024,
+          "mean_relative_humidity_pct": 77.663,
+          "mean_outdoor_wind_speed_10m_mps": 4.015
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 28,
+          "thi_days_daily_mean_ge_72": 87,
+          "max_consecutive_thi_days": 26,
+          "mean_temperature_c": 15.95,
+          "mean_relative_humidity_pct": 77.844,
+          "mean_outdoor_wind_speed_10m_mps": 4.203
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 35,
+          "thi_days_daily_mean_ge_72": 90,
+          "max_consecutive_thi_days": 27,
+          "mean_temperature_c": 16.009,
+          "mean_relative_humidity_pct": 77.611,
+          "mean_outdoor_wind_speed_10m_mps": 4.064
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 19,
+          "thi_days_daily_mean_ge_72": 99,
+          "max_consecutive_thi_days": 62,
+          "mean_temperature_c": 16.074,
+          "mean_relative_humidity_pct": 80.54,
+          "mean_outdoor_wind_speed_10m_mps": 3.896
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 50,
+          "thi_days_daily_mean_ge_72": 100,
+          "max_consecutive_thi_days": 43,
+          "mean_temperature_c": 16.205,
+          "mean_relative_humidity_pct": 73.159,
+          "mean_outdoor_wind_speed_10m_mps": 4.436
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 30.0,
+          "minimum": 19.0,
+          "maximum": 50.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 94.0,
+          "minimum": 87.0,
+          "maximum": 100.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 46.0,
+          "minimum": 26.0,
+          "maximum": 62.0
+        },
+        "mean_temperature_c": {
+          "median": 16.017,
+          "minimum": 15.781,
+          "maximum": 16.205
+        },
+        "mean_relative_humidity_pct": {
+          "median": 77.637,
+          "minimum": 73.159,
+          "maximum": 80.54
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.059,
+          "minimum": 3.896,
+          "maximum": 4.436
+        }
+      }
+    },
+    "2026": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 19,
+          "thi_days_daily_mean_ge_72": 94,
+          "max_consecutive_thi_days": 41,
+          "mean_temperature_c": 15.935,
+          "mean_relative_humidity_pct": 78.485,
+          "mean_outdoor_wind_speed_10m_mps": 4.163
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 40,
+          "thi_days_daily_mean_ge_72": 106,
+          "max_consecutive_thi_days": 97,
+          "mean_temperature_c": 16.52,
+          "mean_relative_humidity_pct": 77.318,
+          "mean_outdoor_wind_speed_10m_mps": 4.118
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 19,
+          "thi_days_daily_mean_ge_72": 58,
+          "max_consecutive_thi_days": 6,
+          "mean_temperature_c": 15.555,
+          "mean_relative_humidity_pct": 77.523,
+          "mean_outdoor_wind_speed_10m_mps": 4.038
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 45,
+          "thi_days_daily_mean_ge_72": 90,
+          "max_consecutive_thi_days": 83,
+          "mean_temperature_c": 16.279,
+          "mean_relative_humidity_pct": 77.474,
+          "mean_outdoor_wind_speed_10m_mps": 3.972
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 38,
+          "thi_days_daily_mean_ge_72": 108,
+          "max_consecutive_thi_days": 68,
+          "mean_temperature_c": 16.651,
+          "mean_relative_humidity_pct": 77.964,
+          "mean_outdoor_wind_speed_10m_mps": 4.03
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 35,
+          "thi_days_daily_mean_ge_72": 98,
+          "max_consecutive_thi_days": 77,
+          "mean_temperature_c": 16.614,
+          "mean_relative_humidity_pct": 71.97,
+          "mean_outdoor_wind_speed_10m_mps": 4.312
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 36.5,
+          "minimum": 19.0,
+          "maximum": 45.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 96.0,
+          "minimum": 58.0,
+          "maximum": 108.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 72.5,
+          "minimum": 6.0,
+          "maximum": 97.0
+        },
+        "mean_temperature_c": {
+          "median": 16.399,
+          "minimum": 15.555,
+          "maximum": 16.651
+        },
+        "mean_relative_humidity_pct": {
+          "median": 77.499,
+          "minimum": 71.97,
+          "maximum": 78.485
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.078,
+          "minimum": 3.972,
+          "maximum": 4.312
+        }
+      }
+    },
+    "2027": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 56,
+          "thi_days_daily_mean_ge_72": 108,
+          "max_consecutive_thi_days": 94,
+          "mean_temperature_c": 16.441,
+          "mean_relative_humidity_pct": 75.597,
+          "mean_outdoor_wind_speed_10m_mps": 4.137
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 18,
+          "thi_days_daily_mean_ge_72": 102,
+          "max_consecutive_thi_days": 36,
+          "mean_temperature_c": 16.099,
+          "mean_relative_humidity_pct": 78.093,
+          "mean_outdoor_wind_speed_10m_mps": 4.1
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 31,
+          "thi_days_daily_mean_ge_72": 85,
+          "max_consecutive_thi_days": 31,
+          "mean_temperature_c": 16.238,
+          "mean_relative_humidity_pct": 77.353,
+          "mean_outdoor_wind_speed_10m_mps": 4.001
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 44,
+          "thi_days_daily_mean_ge_72": 89,
+          "max_consecutive_thi_days": 64,
+          "mean_temperature_c": 16.518,
+          "mean_relative_humidity_pct": 75.099,
+          "mean_outdoor_wind_speed_10m_mps": 4.128
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 32,
+          "thi_days_daily_mean_ge_72": 98,
+          "max_consecutive_thi_days": 71,
+          "mean_temperature_c": 16.114,
+          "mean_relative_humidity_pct": 78.241,
+          "mean_outdoor_wind_speed_10m_mps": 4.143
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 47,
+          "thi_days_daily_mean_ge_72": 97,
+          "max_consecutive_thi_days": 70,
+          "mean_temperature_c": 16.44,
+          "mean_relative_humidity_pct": 75.405,
+          "mean_outdoor_wind_speed_10m_mps": 4.267
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 38.0,
+          "minimum": 18.0,
+          "maximum": 56.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 97.5,
+          "minimum": 85.0,
+          "maximum": 108.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 67.0,
+          "minimum": 31.0,
+          "maximum": 94.0
+        },
+        "mean_temperature_c": {
+          "median": 16.339,
+          "minimum": 16.099,
+          "maximum": 16.518
+        },
+        "mean_relative_humidity_pct": {
+          "median": 76.475,
+          "minimum": 75.099,
+          "maximum": 78.241
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.133,
+          "minimum": 4.001,
+          "maximum": 4.267
+        }
+      }
+    },
+    "2028": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 36,
+          "thi_days_daily_mean_ge_72": 105,
+          "max_consecutive_thi_days": 41,
+          "mean_temperature_c": 15.851,
+          "mean_relative_humidity_pct": 74.79,
+          "mean_outdoor_wind_speed_10m_mps": 4.25
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 36,
+          "thi_days_daily_mean_ge_72": 96,
+          "max_consecutive_thi_days": 72,
+          "mean_temperature_c": 16.404,
+          "mean_relative_humidity_pct": 78.519,
+          "mean_outdoor_wind_speed_10m_mps": 4.117
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 38,
+          "thi_days_daily_mean_ge_72": 102,
+          "max_consecutive_thi_days": 36,
+          "mean_temperature_c": 16.257,
+          "mean_relative_humidity_pct": 78.361,
+          "mean_outdoor_wind_speed_10m_mps": 4.027
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 20,
+          "thi_days_daily_mean_ge_72": 98,
+          "max_consecutive_thi_days": 29,
+          "mean_temperature_c": 16.142,
+          "mean_relative_humidity_pct": 78.251,
+          "mean_outdoor_wind_speed_10m_mps": 4.116
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 44,
+          "thi_days_daily_mean_ge_72": 111,
+          "max_consecutive_thi_days": 86,
+          "mean_temperature_c": 16.047,
+          "mean_relative_humidity_pct": 78.295,
+          "mean_outdoor_wind_speed_10m_mps": 4.47
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 33,
+          "thi_days_daily_mean_ge_72": 81,
+          "max_consecutive_thi_days": 46,
+          "mean_temperature_c": 15.726,
+          "mean_relative_humidity_pct": 80.391,
+          "mean_outdoor_wind_speed_10m_mps": 4.431
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 36.0,
+          "minimum": 20.0,
+          "maximum": 44.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 100.0,
+          "minimum": 81.0,
+          "maximum": 111.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 43.5,
+          "minimum": 29.0,
+          "maximum": 86.0
+        },
+        "mean_temperature_c": {
+          "median": 16.095,
+          "minimum": 15.726,
+          "maximum": 16.404
+        },
+        "mean_relative_humidity_pct": {
+          "median": 78.328,
+          "minimum": 74.79,
+          "maximum": 80.391
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.184,
+          "minimum": 4.027,
+          "maximum": 4.47
+        }
+      }
+    },
+    "2029": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 21,
+          "thi_days_daily_mean_ge_72": 84,
+          "max_consecutive_thi_days": 31,
+          "mean_temperature_c": 15.348,
+          "mean_relative_humidity_pct": 76.277,
+          "mean_outdoor_wind_speed_10m_mps": 4.045
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 15,
+          "thi_days_daily_mean_ge_72": 91,
+          "max_consecutive_thi_days": 25,
+          "mean_temperature_c": 16.144,
+          "mean_relative_humidity_pct": 78.866,
+          "mean_outdoor_wind_speed_10m_mps": 4.254
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 15,
+          "thi_days_daily_mean_ge_72": 86,
+          "max_consecutive_thi_days": 16,
+          "mean_temperature_c": 15.536,
+          "mean_relative_humidity_pct": 78.351,
+          "mean_outdoor_wind_speed_10m_mps": 4.224
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 27,
+          "thi_days_daily_mean_ge_72": 81,
+          "max_consecutive_thi_days": 17,
+          "mean_temperature_c": 16.515,
+          "mean_relative_humidity_pct": 79.468,
+          "mean_outdoor_wind_speed_10m_mps": 4.128
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 30,
+          "thi_days_daily_mean_ge_72": 89,
+          "max_consecutive_thi_days": 63,
+          "mean_temperature_c": 16.11,
+          "mean_relative_humidity_pct": 79.529,
+          "mean_outdoor_wind_speed_10m_mps": 3.98
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 12,
+          "thi_days_daily_mean_ge_72": 93,
+          "max_consecutive_thi_days": 44,
+          "mean_temperature_c": 15.976,
+          "mean_relative_humidity_pct": 78.751,
+          "mean_outdoor_wind_speed_10m_mps": 4.529
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 18.0,
+          "minimum": 12.0,
+          "maximum": 30.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 87.5,
+          "minimum": 81.0,
+          "maximum": 93.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 28.0,
+          "minimum": 16.0,
+          "maximum": 63.0
+        },
+        "mean_temperature_c": {
+          "median": 16.043,
+          "minimum": 15.348,
+          "maximum": 16.515
+        },
+        "mean_relative_humidity_pct": {
+          "median": 78.809,
+          "minimum": 76.277,
+          "maximum": 79.529
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.176,
+          "minimum": 3.98,
+          "maximum": 4.529
+        }
+      }
+    },
+    "2030": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 47,
+          "thi_days_daily_mean_ge_72": 114,
+          "max_consecutive_thi_days": 54,
+          "mean_temperature_c": 16.767,
+          "mean_relative_humidity_pct": 78.274,
+          "mean_outdoor_wind_speed_10m_mps": 4.052
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 49,
+          "thi_days_daily_mean_ge_72": 96,
+          "max_consecutive_thi_days": 86,
+          "mean_temperature_c": 16.511,
+          "mean_relative_humidity_pct": 76.348,
+          "mean_outdoor_wind_speed_10m_mps": 4.008
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 24,
+          "thi_days_daily_mean_ge_72": 77,
+          "max_consecutive_thi_days": 27,
+          "mean_temperature_c": 15.505,
+          "mean_relative_humidity_pct": 77.532,
+          "mean_outdoor_wind_speed_10m_mps": 4.019
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 34,
+          "thi_days_daily_mean_ge_72": 109,
+          "max_consecutive_thi_days": 49,
+          "mean_temperature_c": 16.466,
+          "mean_relative_humidity_pct": 76.847,
+          "mean_outdoor_wind_speed_10m_mps": 3.923
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 48,
+          "thi_days_daily_mean_ge_72": 107,
+          "max_consecutive_thi_days": 83,
+          "mean_temperature_c": 16.856,
+          "mean_relative_humidity_pct": 76.734,
+          "mean_outdoor_wind_speed_10m_mps": 3.974
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 38,
+          "thi_days_daily_mean_ge_72": 102,
+          "max_consecutive_thi_days": 62,
+          "mean_temperature_c": 17.137,
+          "mean_relative_humidity_pct": 72.534,
+          "mean_outdoor_wind_speed_10m_mps": 4.426
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 42.5,
+          "minimum": 24.0,
+          "maximum": 49.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 104.5,
+          "minimum": 77.0,
+          "maximum": 114.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 58.0,
+          "minimum": 27.0,
+          "maximum": 86.0
+        },
+        "mean_temperature_c": {
+          "median": 16.639,
+          "minimum": 15.505,
+          "maximum": 17.137
+        },
+        "mean_relative_humidity_pct": {
+          "median": 76.79,
+          "minimum": 72.534,
+          "maximum": 78.274
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.014,
+          "minimum": 3.923,
+          "maximum": 4.426
+        }
+      }
+    },
+    "2031": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 37,
+          "thi_days_daily_mean_ge_72": 97,
+          "max_consecutive_thi_days": 30,
+          "mean_temperature_c": 16.156,
+          "mean_relative_humidity_pct": 76.471,
+          "mean_outdoor_wind_speed_10m_mps": 3.995
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 47,
+          "thi_days_daily_mean_ge_72": 103,
+          "max_consecutive_thi_days": 72,
+          "mean_temperature_c": 16.799,
+          "mean_relative_humidity_pct": 79.2,
+          "mean_outdoor_wind_speed_10m_mps": 3.852
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 26,
+          "thi_days_daily_mean_ge_72": 82,
+          "max_consecutive_thi_days": 34,
+          "mean_temperature_c": 16.603,
+          "mean_relative_humidity_pct": 79.052,
+          "mean_outdoor_wind_speed_10m_mps": 3.959
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 24,
+          "thi_days_daily_mean_ge_72": 81,
+          "max_consecutive_thi_days": 45,
+          "mean_temperature_c": 16.037,
+          "mean_relative_humidity_pct": 77.734,
+          "mean_outdoor_wind_speed_10m_mps": 3.88
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 22,
+          "thi_days_daily_mean_ge_72": 97,
+          "max_consecutive_thi_days": 65,
+          "mean_temperature_c": 16.485,
+          "mean_relative_humidity_pct": 79.367,
+          "mean_outdoor_wind_speed_10m_mps": 3.965
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 66,
+          "thi_days_daily_mean_ge_72": 107,
+          "max_consecutive_thi_days": 70,
+          "mean_temperature_c": 16.861,
+          "mean_relative_humidity_pct": 72.975,
+          "mean_outdoor_wind_speed_10m_mps": 4.622
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 31.5,
+          "minimum": 22.0,
+          "maximum": 66.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 97.0,
+          "minimum": 81.0,
+          "maximum": 107.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 55.0,
+          "minimum": 30.0,
+          "maximum": 72.0
+        },
+        "mean_temperature_c": {
+          "median": 16.544,
+          "minimum": 16.037,
+          "maximum": 16.861
+        },
+        "mean_relative_humidity_pct": {
+          "median": 78.393,
+          "minimum": 72.975,
+          "maximum": 79.367
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 3.962,
+          "minimum": 3.852,
+          "maximum": 4.622
+        }
+      }
+    },
+    "2032": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 27,
+          "thi_days_daily_mean_ge_72": 98,
+          "max_consecutive_thi_days": 38,
+          "mean_temperature_c": 16.143,
+          "mean_relative_humidity_pct": 78.383,
+          "mean_outdoor_wind_speed_10m_mps": 4.102
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 17,
+          "thi_days_daily_mean_ge_72": 82,
+          "max_consecutive_thi_days": 28,
+          "mean_temperature_c": 16.168,
+          "mean_relative_humidity_pct": 79.784,
+          "mean_outdoor_wind_speed_10m_mps": 4.02
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 20,
+          "thi_days_daily_mean_ge_72": 96,
+          "max_consecutive_thi_days": 37,
+          "mean_temperature_c": 16.898,
+          "mean_relative_humidity_pct": 78.178,
+          "mean_outdoor_wind_speed_10m_mps": 3.993
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 20,
+          "thi_days_daily_mean_ge_72": 83,
+          "max_consecutive_thi_days": 44,
+          "mean_temperature_c": 15.529,
+          "mean_relative_humidity_pct": 77.809,
+          "mean_outdoor_wind_speed_10m_mps": 3.934
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 25,
+          "thi_days_daily_mean_ge_72": 80,
+          "max_consecutive_thi_days": 67,
+          "mean_temperature_c": 15.834,
+          "mean_relative_humidity_pct": 78.396,
+          "mean_outdoor_wind_speed_10m_mps": 3.913
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 64,
+          "thi_days_daily_mean_ge_72": 113,
+          "max_consecutive_thi_days": 80,
+          "mean_temperature_c": 16.556,
+          "mean_relative_humidity_pct": 74.986,
+          "mean_outdoor_wind_speed_10m_mps": 4.671
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 22.5,
+          "minimum": 17.0,
+          "maximum": 64.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 89.5,
+          "minimum": 80.0,
+          "maximum": 113.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 41.0,
+          "minimum": 28.0,
+          "maximum": 80.0
+        },
+        "mean_temperature_c": {
+          "median": 16.155,
+          "minimum": 15.529,
+          "maximum": 16.898
+        },
+        "mean_relative_humidity_pct": {
+          "median": 78.28,
+          "minimum": 74.986,
+          "maximum": 79.784
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.006,
+          "minimum": 3.913,
+          "maximum": 4.671
+        }
+      }
+    },
+    "2033": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 34,
+          "thi_days_daily_mean_ge_72": 95,
+          "max_consecutive_thi_days": 28,
+          "mean_temperature_c": 16.456,
+          "mean_relative_humidity_pct": 76.827,
+          "mean_outdoor_wind_speed_10m_mps": 4.509
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 16,
+          "thi_days_daily_mean_ge_72": 96,
+          "max_consecutive_thi_days": 42,
+          "mean_temperature_c": 16.075,
+          "mean_relative_humidity_pct": 78.23,
+          "mean_outdoor_wind_speed_10m_mps": 4.115
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 29,
+          "thi_days_daily_mean_ge_72": 70,
+          "max_consecutive_thi_days": 17,
+          "mean_temperature_c": 16.062,
+          "mean_relative_humidity_pct": 76.803,
+          "mean_outdoor_wind_speed_10m_mps": 3.984
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 25,
+          "thi_days_daily_mean_ge_72": 92,
+          "max_consecutive_thi_days": 50,
+          "mean_temperature_c": 16.254,
+          "mean_relative_humidity_pct": 76.942,
+          "mean_outdoor_wind_speed_10m_mps": 4.044
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 25,
+          "thi_days_daily_mean_ge_72": 104,
+          "max_consecutive_thi_days": 69,
+          "mean_temperature_c": 16.35,
+          "mean_relative_humidity_pct": 78.052,
+          "mean_outdoor_wind_speed_10m_mps": 3.974
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 18,
+          "thi_days_daily_mean_ge_72": 81,
+          "max_consecutive_thi_days": 28,
+          "mean_temperature_c": 16.248,
+          "mean_relative_humidity_pct": 76.37,
+          "mean_outdoor_wind_speed_10m_mps": 4.247
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 25.0,
+          "minimum": 16.0,
+          "maximum": 34.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 93.5,
+          "minimum": 70.0,
+          "maximum": 104.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 35.0,
+          "minimum": 17.0,
+          "maximum": 69.0
+        },
+        "mean_temperature_c": {
+          "median": 16.251,
+          "minimum": 16.062,
+          "maximum": 16.456
+        },
+        "mean_relative_humidity_pct": {
+          "median": 76.885,
+          "minimum": 76.37,
+          "maximum": 78.23
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.079,
+          "minimum": 3.974,
+          "maximum": 4.509
+        }
+      }
+    },
+    "2034": {
+      "model_values": {
+        "CMCC_CM2_VHR4": {
+          "hot_days_temperature_max_ge_30": 30,
+          "thi_days_daily_mean_ge_72": 121,
+          "max_consecutive_thi_days": 76,
+          "mean_temperature_c": 16.839,
+          "mean_relative_humidity_pct": 79.362,
+          "mean_outdoor_wind_speed_10m_mps": 4.344
+        },
+        "EC_Earth3P_HR": {
+          "hot_days_temperature_max_ge_30": 35,
+          "thi_days_daily_mean_ge_72": 114,
+          "max_consecutive_thi_days": 87,
+          "mean_temperature_c": 16.875,
+          "mean_relative_humidity_pct": 79.244,
+          "mean_outdoor_wind_speed_10m_mps": 4.287
+        },
+        "FGOALS_f3_H": {
+          "hot_days_temperature_max_ge_30": 46,
+          "thi_days_daily_mean_ge_72": 98,
+          "max_consecutive_thi_days": 38,
+          "mean_temperature_c": 17.047,
+          "mean_relative_humidity_pct": 78.386,
+          "mean_outdoor_wind_speed_10m_mps": 4.031
+        },
+        "HiRAM_SIT_HR": {
+          "hot_days_temperature_max_ge_30": 61,
+          "thi_days_daily_mean_ge_72": 110,
+          "max_consecutive_thi_days": 80,
+          "mean_temperature_c": 17.392,
+          "mean_relative_humidity_pct": 78.17,
+          "mean_outdoor_wind_speed_10m_mps": 3.97
+        },
+        "MRI_AGCM3_2_S": {
+          "hot_days_temperature_max_ge_30": 37,
+          "thi_days_daily_mean_ge_72": 119,
+          "max_consecutive_thi_days": 92,
+          "mean_temperature_c": 17.059,
+          "mean_relative_humidity_pct": 79.071,
+          "mean_outdoor_wind_speed_10m_mps": 4.103
+        },
+        "MPI_ESM1_2_XR": {
+          "hot_days_temperature_max_ge_30": 53,
+          "thi_days_daily_mean_ge_72": 91,
+          "max_consecutive_thi_days": 53,
+          "mean_temperature_c": 16.521,
+          "mean_relative_humidity_pct": 75.537,
+          "mean_outdoor_wind_speed_10m_mps": 4.398
+        }
+      },
+      "summary": {
+        "hot_days_temperature_max_ge_30": {
+          "median": 41.5,
+          "minimum": 30.0,
+          "maximum": 61.0
+        },
+        "thi_days_daily_mean_ge_72": {
+          "median": 112.0,
+          "minimum": 91.0,
+          "maximum": 121.0
+        },
+        "max_consecutive_thi_days": {
+          "median": 78.0,
+          "minimum": 38.0,
+          "maximum": 92.0
+        },
+        "mean_temperature_c": {
+          "median": 16.961,
+          "minimum": 16.521,
+          "maximum": 17.392
+        },
+        "mean_relative_humidity_pct": {
+          "median": 78.728,
+          "minimum": 75.537,
+          "maximum": 79.362
+        },
+        "mean_outdoor_wind_speed_10m_mps": {
+          "median": 4.195,
+          "minimum": 3.97,
+          "maximum": 4.398
+        }
+      }
+    }
+  }
+}

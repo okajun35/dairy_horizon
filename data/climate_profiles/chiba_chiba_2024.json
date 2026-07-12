@@ -1,0 +1,20 @@
+{
+  "profile_id": "chiba_chiba_2024",
+  "region_name_ja": "千葉県",
+  "station_name_ja": "千葉",
+  "target_year": 2024,
+  "observed_thi_summary": {
+    "hours_thi_ge_68": 24,
+    "hours_thi_ge_80": 17,
+    "hours_thi_ge_85": 4,
+    "max_thi": 85.95
+  },
+  "thi_definition": {
+    "threshold": 72,
+    "daily_rule": "daily_max_thi_gte_threshold",
+    "temperature_source": "hourly",
+    "humidity_source": "hourly",
+    "calculation_note": "Static reference summary only; not recalculated by the app."
+  },
+  "source_id": "jma_chiba_2024_08_17_hourly"
+}

@@ -1,0 +1,20 @@
+{
+  "observed_2024_08_17": {
+    "hours_thi_ge_68": 24,
+    "hours_thi_ge_80": 17,
+    "hours_thi_ge_85": 4,
+    "max_thi": 85.95
+  },
+  "plus_1c_stress": {
+    "hours_thi_ge_68": 24,
+    "hours_thi_ge_80": 24,
+    "hours_thi_ge_85": 11,
+    "max_thi": 87.47
+  },
+  "plus_2c_stress": {
+    "hours_thi_ge_68": 24,
+    "hours_thi_ge_80": 24,
+    "hours_thi_ge_85": 14,
+    "max_thi": 89.0
+  }
+}

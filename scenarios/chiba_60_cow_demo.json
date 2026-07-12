@@ -1,0 +1,54 @@
+{
+  "scenario_id": "chiba_60_cow_demo_v2",
+  "label_ja": "千葉・60頭・2列つなぎ牛舎 デモ",
+  "template_id": "tie_stall_variable_v2",
+  "location": {
+    "prefecture": "千葉県",
+    "reference_station": "千葉",
+    "jma_block_no": "47682"
+  },
+  "barn_input": {
+    "lactating_cows": 60,
+    "row_count": 2,
+    "existing_fan_count": 10,
+    "existing_fan_age_years": 12,
+    "roof_insulated": false
+  },
+  "financial_input": {
+    "base_milk_price_yen_per_kg": 135,
+    "milk_price_change_yen_per_kg": 0,
+    "milk_price_input_unit": "yen_per_kg",
+    "variable_cost_ratio_pct": 60.0,
+    "consumption_tax_rate_pct": 10.0,
+    "tax_basis": "tax_exclusive",
+    "fan_body_yen_per_unit": 100000,
+    "inverter_yen_per_unit": 10000,
+    "installation_yen_per_unit": 110000,
+    "rated_power_kw": 0.4,
+    "energy_charge_yen_per_kwh": 27,
+    "basic_charge_yen_per_kw_month": 1300,
+    "hours_per_day": 24,
+    "active_days": 120,
+    "inverter_reduction_ratio_pct": 25.0,
+    "useful_life_years": 7,
+    "annual_interest_rate_pct": 0.0,
+    "annualisation_method": "straight_line",
+    "cows_covered_per_fan": 3
+  },
+  "decision_profile": {
+    "owner_age": 58,
+    "continue_years_target": 5,
+    "successor_status": "undecided",
+    "exit_debt_free": true,
+    "decision_deferral_years": 5
+  },
+  "provenance": {
+    "financial_example": {
+      "kind": "industry_example",
+      "source_id": "zenrakuren_cowbell_178"
+    },
+    "barn_and_persona": {
+      "kind": "demo_assumption"
+    }
+  }
+}

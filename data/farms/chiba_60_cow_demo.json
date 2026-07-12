@@ -1,0 +1,32 @@
+{
+  "farm_id": "chiba_60_cow_demo",
+  "label_ja": "千葉・60頭・2牛床列つなぎ牛舎",
+  "climate_profile_id": "chiba_chiba_2024",
+  "barn_input": {
+    "lactating_cows": 60,
+    "lane_count": 2,
+    "existing_fan_count": 10
+  },
+  "layout_assumptions": {
+    "cows_per_target_fan": 3
+  },
+  "fan_assumptions": {
+    "installed_cost_yen_per_unit": 220000,
+    "power_kw_per_unit": 0.4,
+    "operating_hours_per_day": 24,
+    "basic_charge_yen_per_kw_month": 1300,
+    "inverter_reduction_ratio_pct": 25,
+    "useful_life_years": 7
+  },
+  "economic_assumptions": {
+    "milk_price_yen_per_kg": 135,
+    "variable_cost_ratio_pct": 60,
+    "avoided_milk_loss_kg_per_cow_day": 3.0,
+    "electricity_price_yen_per_kwh": 27
+  },
+  "planning_assumptions": {
+    "heat_stress_days_per_year": 120,
+    "heat_stress_days_source": "zenrakuren_cow_bell_178_demo"
+  },
+  "evaluation_period_years": 5
+}

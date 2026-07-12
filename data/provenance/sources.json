@@ -1,0 +1,53 @@
+{
+  "dataset_id": "dairy_horizon_chiba_sources_v1",
+  "generated_at": "2026-07-11",
+  "sources": [
+    {
+      "id": "jma_chiba_2024_aug_daily",
+      "publisher": "気象庁",
+      "title": "千葉 2024年8月 日ごとの値",
+      "url": "https://www.data.jma.go.jp/stats/etrn/view/daily_s1.php?prec_no=45&block_no=47682&year=2024&month=8&day=&view=p1",
+      "kind": "official_observation"
+    },
+    {
+      "id": "jma_chiba_2024_08_17_hourly",
+      "publisher": "気象庁",
+      "title": "千葉 2024年8月17日 1時間ごとの値",
+      "url": "https://www.data.jma.go.jp/stats/etrn/view/hourly_s1.php?prec_no=45&block_no=47682&year=2024&month=08&day=17&view=p1",
+      "kind": "official_observation"
+    },
+    {
+      "id": "jma_climate_change_2025",
+      "publisher": "気象庁",
+      "title": "日本の気候変動2025 第4章",
+      "url": "https://www.data.jma.go.jp/cpdinfo/ccj/2025/html_honpen/cc2025_honpen_4.html",
+      "kind": "official_projection_report"
+    },
+    {
+      "id": "open_meteo_climate_api",
+      "publisher": "Open-Meteo",
+      "title": "Climate API documentation",
+      "url": "https://open-meteo.com/en/docs/climate-api",
+      "kind": "processed_cmip6_api",
+      "license_note": "Open-MeteoおよびCMIP6への帰属表示が必要。"
+    },
+    {
+      "id": "maff_milk_production_cost_2024",
+      "publisher": "農林水産省・e-Stat",
+      "title": "令和6年 畜産物生産費 牛乳生産費",
+      "url": "https://www.e-stat.go.jp/stat-search/files?layout=datalist&lid=000001479907&page=1",
+      "kind": "official_statistics",
+      "status": "source_registered_not_curated_into_v1"
+    },
+    {
+      "id": "zenrakuren_cowbell_178",
+      "publisher": "全国酪農業協同組合連合会",
+      "title": "COW BELL No.178 暑熱対策の設備投資を考える",
+      "kind": "industry_guidance",
+      "source_file": "User-provided No178HP(1).pdf",
+      "pages": "6-8",
+      "official_site_url": "https://www.zenrakuren.or.jp/",
+      "direct_pdf_url_status": "not_confirmed"
+    }
+  ]
+}
