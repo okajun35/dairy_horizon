@@ -96,7 +96,13 @@ def form_values_from_farm(farm: dict[str, Any]) -> dict[str, str]:
 def merge_form_values(defaults: dict[str, str], submitted: dict[str, Any] | None) -> dict[str, str]:
     if not submitted:
         return defaults
-    return {key: str(submitted.get(key, defaults[key])) for key in defaults}
+    merged: dict[str, str] = {}
+    for key, default in defaults.items():
+        submitted_value = submitted.get(key, default)
+        # A blank browser field should not turn a provided demo initial value
+        # into an unexplained empty input after a validation error.
+        merged[key] = default if submitted_value is None or (str(submitted_value).strip() == "" and default != "") else str(submitted_value)
+    return merged
 
 
 def calculate_required_fans(total_cows: int, lane_count: int, cows_per_fan: int) -> tuple[list[int], list[int]]:

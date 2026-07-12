@@ -118,6 +118,8 @@ class ClimateProfileTest(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertIn("2026〜2034年の見通し", response.text)
         self.assertIn("気候モデルのシナリオ", response.text)
+        self.assertIn('name="lactating_cows" type="number" min="1" max="300" value="60"', response.text)
+        self.assertIn('name="existing_fan_count" type="number" min="0" value="10"', response.text)
         self.assertIn('name="stage_one_year"', response.text)
         self.assertIn('name="annual_cash_before_heat_yen"', response.text)
         self.assertIn('value="1600000"', response.text)
