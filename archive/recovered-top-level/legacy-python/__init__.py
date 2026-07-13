@@ -27,7 +27,8 @@ from scripts.generate_barn_layout import TieStallBarnConfig, TieStallLayoutGener
 ROOT = Path(__file__).resolve().parents[1]
 FARM_PATH = ROOT / "data/farms/chiba_60_cow_demo.json"
 CLIMATE_DIR = ROOT / "data/climate_profiles"
-FUTURE_CLIMATE_PATH = CLIMATE_DIR / "generated/chiba_city_2026_2050.json"
+FUTURE_CLIMATE_PATH = CLIMATE_DIR / "generated/chiba_city_2025_2040.json"
+EXTENDED_FUTURE_CLIMATE_PATH = CLIMATE_DIR / "generated/chiba_city_2026_2050.json"
 LEGACY_FUTURE_CLIMATE_PATH = CLIMATE_DIR / "generated/chiba_city_2025_2034.json"
 
 ZERO = Decimal("0")
@@ -79,7 +80,10 @@ def load_farm_and_climate() -> tuple[dict[str, Any], dict[str, Any]]:
 
 def load_future_climate() -> dict[str, Any]:
     """Load the versioned profile shipped with the app; never fetch on a request."""
-    path = FUTURE_CLIMATE_PATH if FUTURE_CLIMATE_PATH.exists() else LEGACY_FUTURE_CLIMATE_PATH
+    candidates = (FUTURE_CLIMATE_PATH, EXTENDED_FUTURE_CLIMATE_PATH, LEGACY_FUTURE_CLIMATE_PATH)
+    path = next((candidate for candidate in candidates if candidate.exists()), None)
+    if path is None:
+        raise InputValidationError("generated climate profile is missing")
     return json.loads(path.read_text(encoding="utf-8"))
 
 

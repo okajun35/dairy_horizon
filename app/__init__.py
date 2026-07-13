@@ -1,1 +1,1 @@
-"""Dairy Horizon vertical-slice application."""
+"""Dairy Horizon application package."""

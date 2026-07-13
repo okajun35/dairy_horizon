@@ -1,364 +1,350 @@
 # AGENTS.md — Dairy Horizon
 
-## 1. Product purpose
+## 1. このファイルの役割
 
-Dairy Horizon helps a dairy farmer decide which heat-abatement investment
-preserves future choices for the longest time.
+このファイルは、CodexがDairy Horizonで作業するときの**継続的な行動規範**である。
 
-The first supported case is a Japanese small or medium dairy farm with an
-existing tie-stall barn.
+詳細な機能要件、長期ロードマップ、画面設計書をここへ重複して書かない。  
+現在の実装範囲は `CODEX_PHASE1_PLAN.md`、長期方針は `DAIRY_HORIZON_ROADMAP.md` を参照する。
 
-The central question is:
+判断の優先順位は次のとおり。
 
-> この投資は、農場の未来の選択肢を何年守れるか。
+1. ユーザーが現在の会話で明示した指示
+2. ユーザー承認済みの現在Plan
+3. この `AGENTS.md`
+4. `specs/` の計算仕様
+5. README、過去Plan、既存実装
 
-This is not a generic chatbot, a farm ERP, a CFD tool, or a final financial
-advisory product.
-
----
-
-## 2. Primary user flow
-
-The application must support this complete path:
-
-1. Receive a short description of the farm and the owner's uncertainty.
-2. Convert the description into structured hard and soft constraints.
-3. Generate a reference tie-stall barn from a small number of inputs.
-4. Show current heat exposure and fan coverage.
-5. Compare investment options.
-6. Calculate the break-even avoided milk loss.
-7. Calculate the maximum affordable investment and Choice Horizon.
-8. Explain why each option passes or fails.
-9. Generate a short quote-request/action sheet.
-
-The demo must work without requiring the user to enter every value.
+過去Planと現在Planが矛盾する場合は、過去Planを実装根拠にしない。
 
 ---
 
-## 3. Non-negotiable architecture rules
+## 2. Product North Star
 
-### 3.1 LLM boundary
+Dairy Horizonは、精密な経営計画を自動作成するシステムではない。
 
-The LLM may:
+> 少ない入力と透明な仮定から、現在の不足、小さく始める対策、結論を変える条件、次に確認すべき一つの情報を示す。
 
-- extract structured constraints from natural language;
-- identify missing information;
-- choose the next highest-value question;
-- explain deterministic results;
-- generate a quote-request draft.
+長期的には、農家が「続ける・継ぐ・終える」という選択肢を失わないための適応投資経路を支援する。
 
-The LLM must not:
+ただし、現在のPhase 1では本格的なChoice Horizonを完成させない。
 
-- calculate THI;
-- calculate airflow;
-- calculate investment returns;
-- calculate loan repayment;
-- estimate prices without an explicit tagged assumption;
-- decide a result that contradicts the deterministic engine.
+---
 
-All numeric outputs used in the recommendation must come from tested Python
-functions.
+## 3. Current Phase
 
-### 3.2 Determinism
+現在の実装対象は**30秒投資スクリーニング**である。
 
-The same validated input must produce the same numeric output.
-
-No random number generation is allowed in the core calculation path unless:
-
-- a seed is explicit;
-- the output is labelled as simulation;
-- deterministic unit tests exist.
-
-### 3.3 Separation of concerns
-
-Use a ports-and-adapters structure.
-
-Recommended modules:
+必須のユーザー導線は次の一本。
 
 ```text
-app/
-  domain/
-    models.py
-    heat.py
-    barn.py
-    finance.py
-    choice_horizon.py
-    specifications.py
-  application/
-    build_reference_farm.py
-    compare_investments.py
-    build_quote_request.py
-  ports/
-    climate.py
-    equipment.py
-    language_model.py
-  adapters/
-    json_climate.py
-    json_equipment.py
-    openai_language_model.py
-  web/
-    routes.py
-    schemas.py
-    templates/
-    static/
-tests/
+地域・頭数・列数・既存ファン数
+    ↓
+現在の不足を牛舎上で確認
+    ↓
+現在・第1期・全数追加を比較
+    ↓
+標準仮定で成立しそうかを粗く確認
+    ↓
+結論を最も変える情報を一つ示す
+    ↓
+見積依頼など次の行動へ進む
 ```
 
-The domain layer must not import FastAPI, OpenAI SDK classes, HTTP clients,
-database clients, or template engines.
-
-### 3.4 Python practices
-
-- Target Python 3.12 or later.
-- Use type hints on public functions.
-- Prefer immutable dataclasses or frozen Pydantic models for domain values.
-- Include units in field names, such as `temperature_c`, `amount_yen`,
-  `air_speed_mps`, and `milk_price_yen_per_kg`.
-- Prefer pure functions for calculations.
-- Use `Decimal` only where currency rounding materially affects the result;
-  otherwise use float with explicit rounding at presentation boundaries.
-- Raise domain-specific exceptions rather than generic exceptions.
-- Avoid hidden module-level mutable state.
-- Keep functions small and testable.
-- Do not catch `Exception` unless re-raising with context at an adapter boundary.
+Phase 2以降の適応経路、地域拡張、実測補正、本格Choice Horizonは、現在Planに明記されない限り実装しない。
 
 ---
 
-## 4. Source data and provenance
+## 4. Product Decision Rules
 
-Every value shown to the user must have one of these provenance kinds:
+### 4.1 推薦より条件を示す
+
+単一の「おすすめ」を断定しない。
+
+表示するのは次。
+
+- 現在の不足
+- 比較可能な少数の案
+- 案が成立する条件
+- 案が難しくなる条件
+- 次に確認すべき情報
+
+根拠のない閾値で、投資年や最適案を自動生成しない。
+
+### 4.2 入力を増やす前に価値を確認する
+
+新しい入力項目は、次の条件を満たす場合だけ追加する。
+
+- 結論が変わる可能性がある
+- システムが自動取得できない
+- 標準仮定のままでは誤解を生む
+- 初期画面で必要か、後から確認すべきかを区別できる
+
+税、債務、金利、補助金などを初期入力へ追加しない。必要なら専門家向け詳細設定へ置く。
+
+### 4.3 仮定を事実として扱わない
+
+次を明確に区別する。
+
+- user_input
+- official_observation
+- official_statistics
+- industry_guidance
+- manufacturer_spec
+- derived
+- demo_assumption
+
+`demo_assumption` を実測値、相場、公式推奨として表示しない。
+
+### 4.4 不明な値を勝手に精密化しない
+
+根拠がない場合は、次のどれかを選ぶ。
+
+1. 未評価とする
+2. 幅で示す
+3. 明示的なデモ仮定を使う
+4. 次に確認すべき情報として返す
+
+意味のない小数桁や精密な将来年を表示しない。
+
+---
+
+## 5. GPT-5.6 Boundary
+
+GPT-5.6の役割は、入力負担を減らし、次の問いを選ぶことである。
+
+GPT-5.6 may:
+
+- 自然文から農場条件の候補を抽出する
+- user input と assumption を区別する
+- 不明な情報を特定する
+- 結果を平易な日本語で説明する
+- 結論を最も変える次の質問を一つ選ぶ
+- 見積依頼文を作成する
+
+GPT-5.6 must not:
+
+- ファン必要台数を暗算で決定する
+- 投資回収、電気代、収支分岐点を文章推論だけで計算する
+- 将来気候を生成する
+- 設備価格や効果を根拠なく発明する
+- 決定論的エンジンと異なる結論を返す
+
+数値結果はテストされたPython関数から取得する。
+
+API失敗時は、決定論的な入力フォームと説明テンプレートへフォールバックする。
+
+---
+
+## 6. Deterministic Engine Rules
+
+同じ検証済み入力は、同じ数値結果を返さなければならない。
+
+維持する中心計算は次。
+
+- 列ごとの必要ファン数
+- 不足ファン数
+- 第1期と全数追加の追加台数
+- newly covered cow IDs
+- 増分設備費
+- 増分年間電気代
+- 全酪連式の収支分岐点乳量
+- 払える設備費の目安
+- 乳価感度
+- 乳価0円の安全な処理
+
+次を実装根拠にしない。
+
+- `uncovered_cows * heat_days > 3200`
+- 取得していない将来年の機械的な外挿
+- 空の投資案に対する `all([])` の成立判定
+- 根拠のない暑熱閾値からの投資年推薦
+
+計算仕様を変更するときは、先に失敗するテストを追加し、変更理由を報告する。
+
+---
+
+## 7. Climate Rules
+
+将来気候は確定予報ではなく、意思決定の背景情報である。
+
+- Webリクエスト中に外部気候APIを呼ばない
+- API取得は事前処理とする
+- 生成済みJSONをWebで読む
+- 複数モデルの中央値と範囲を使う
+- 特定年の天気を断定しない
+- 未取得期間は未取得と表示する
+- 屋外10m風速を牛体付近風速として扱わない
+- THIは環境指標であり、ファン風速で値を書き換えない
+
+現在のPhase 1では、気候情報からおすすめ投資年を決めない。
+
+---
+
+## 8. UX Rules
+
+### 8.1 初期入力
+
+初期入力は原則として次の4項目。
+
+- 地域
+- 搾乳牛頭数
+- 牛床列数
+- 既存ファン数
+
+その他の値は標準仮定を使い、結果後に変更できるようにする。
+
+### 8.2 画面の重心
+
+牛舎と現在状態を主役にする。
+
+目安：
+
+- 牛舎と現在状態：45%
+- 次の一手：25%
+- 成立条件：20%
+- 詳細入力・計算根拠：10%
+
+### 8.3 Three.js
+
+既存のThree.js 2.5D表示を維持してよい。
+
+- OrthographicCamera
+- 牛はInstancedMesh
+- ズーム、パン、クリック
+- 現在・第1期・全数追加の切替
+
+影、物理演算、GLTF、自由歩行、CFD風表現は追加しない。
+
+### 8.4 表示語
+
+主表示では農家が理解しやすい語を使う。
+
+| 内部・専門用語 | 主表示 |
+|---|---|
+| maximum affordable capex | この条件で払える目安 |
+| investment margin | 見積額との差 |
+| break-even avoided milk loss | 回収に必要な防止乳量 |
+| infeasible | 現在の仮定では難しい |
+| sensitivity analysis | 条件を変えた場合 |
+
+内部ステータス名、Python例外、英語エラーコードを画面へ直接表示しない。
+
+### 8.5 一画面の情報量
+
+投資案の主カードは最大5項目程度に絞る。
+
+詳細計算、乳価感度、税、電気料金、変動費率は折りたたみに置く。
+
+---
+
+## 9. Architecture Rules
+
+既存の動くコードを優先する。
+
+パターン適用そのものを目的にしない。
+
+- 全面リファクタリングから始めない
+- 現在の垂直スライスを壊さない
+- 新しい抽象化は、複数実装、外部依存分離、テスト容易性のいずれかが必要な場合だけ導入する
+- Strategy、Adapter、Application Serviceなどは必要に応じて使う
+- Specification、Repository、完全なPorts and Adaptersを先回りして導入しない
+- ドメイン計算からFastAPI、OpenAI SDK、HTTPクライアントを分離する
+- 単位をフィールド名へ含める
+- 公開関数に型ヒントを付ける
+- コア計算は可能な限り純粋関数にする
+- 金額計算は既存方針に従いDecimalを使用する
+
+---
+
+## 10. Current Non-goals
+
+現在のPhase 1では次を実装しない。
+
+- 本格Choice Horizon
+- 債務返済・引退時残債モデル
+- 精密な税務申告計算
+- 補助金判定
+- 自動おすすめ投資年
+- 自動設備最適化
+- OR-Tools
+- CFD
+- 屋根断熱評価
+- 多数の設備種類
+- フリーストール牛舎
+- DB
+- 認証
+- React / React Three Fiber
+- OCR
+- PDF生成
+- リアルタイムIoT
+- 全国需要予測
+
+長期ロードマップに存在しても、現在Planにない機能は実装しない。
+
+---
+
+## 11. Working Behavior
+
+各タスクで次の順番を守る。
+
+1. 関連ファイルとテストを読む
+2. 現在Planとの整合を確認する
+3. 変更対象と非対象を短く示す
+4. 最小の完全な変更を実装する
+5. ドメイン変更では先にテストを追加する
+6. 全テストと構文確認を実行する
+7. ブラウザの黄金経路を確認する
+8. 変更内容、テスト結果、追加した仮定、残るリスクを報告する
+
+不明なドメインルールを発見した場合は、推測で実装せず停止して確認する。
+
+既存の決定論的コードを、理由なくLLM呼び出しへ置き換えない。
+
+---
+
+## 12. Definition of Done — Phase 1
+
+Phase 1は次をすべて満たしたときに完了する。
+
+- 初期入力が4項目程度
+- 60頭デモがエンドツーエンドで動く
+- 75頭入力でも配置計算が壊れない
+- 現在・第1期・全数追加を切り替えられる
+- 牛舎が画面の主役になっている
+- 現在の不足が30秒以内に理解できる
+- 第1期と全数追加の成立条件が分かる
+- 結論を最も変える情報が一つ表示される
+- 見積依頼文へ進める
+- 乳価0円を安全に処理する
+- 仮定と出典が表示される
+- 内部例外と内部コードが表示されない
+- 自動テストがすべて通る
+- READMEに正確な起動・テスト手順がある
+
+---
+
+## 13. Final Report Format
+
+作業完了時は次を報告する。
 
 ```text
-official_observation
-official_statistics
-official_projection_report
-industry_guidance
-manufacturer_spec
-literature
-derived
-demo_assumption
-user_input
+変更したもの
+- ...
+
+変更しなかったもの
+- ...
+
+検証
+- command: ...
+- result: ...
+
+追加・変更した仮定
+- ...
+
+既知の制限
+- ...
+
+次に行うべき一件
+- ...
 ```
-
-The result must preserve provenance through calculations.
-
-At minimum, each displayed assumption must expose:
-
-- value;
-- unit;
-- provenance kind;
-- source ID;
-- explanation;
-- whether the user can override it.
-
-Never present `demo_assumption` as an observed market price.
-
----
-
-## 5. Core formulas
-
-The source of the fan-investment screening formula is documented in:
-
-```text
-specs/ZENRAKUREN_CALCULATION_SPEC.md
-```
-
-Do not silently change the formula.
-
-If the implementation differs from the specification:
-
-1. stop;
-2. write a failing test;
-3. document the proposed change;
-4. ask for approval before changing the domain rule.
-
-The variable barn rules are documented in:
-
-```text
-specs/VARIABLE_MODEL_SPEC.md
-```
-
----
-
-## 6. Required domain invariants
-
-Tests must prove the following.
-
-### Heat and climate
-
-- Higher temperature must not reduce THI when humidity is unchanged.
-- Higher humidity must not reduce THI under the supported hot-weather range.
-- A hotter stress scenario must not produce a lower heat-risk result.
-- Outdoor wind speed must never be labelled as cow-body air speed.
-
-### Barn and fan layout
-
-- The number of generated cows equals the requested cow count.
-- The number of generated rows equals the requested row count.
-- Every cow belongs to exactly one row and stall.
-- Every target fan covers at least one cow.
-- Required fan count is calculated per row.
-- 60 cows in two equal rows at three cows per fan requires 20 fans.
-- 75 cows split into 38 and 37 requires 26 fans.
-- Additional fan count cannot be negative.
-
-### Finance
-
-- Higher milk price must not increase break-even milk volume.
-- Higher electricity price must not reduce annual operating cost.
-- Higher variable-cost ratio must not reduce break-even sales.
-- Higher interest rate must not reduce annualised capital cost.
-- Milk price zero returns a non-calculable/recovery-impossible status.
-- Mixing tax-inclusive and tax-exclusive amounts must fail validation.
-- The default Zenrakuren example must reproduce approximately
-  `3.1377 kg/cow/day`, while the explanation may show the published rounded
-  value `3.2 kg/cow/day`.
-
-### Choice Horizon
-
-- Choice Horizon ends at the first year in which a required specification
-  fails.
-- A scenario cannot pass after its hard debt-at-exit constraint fails.
-- A scenario with no feasible option must return `no_feasible_option`.
-- The engine must explain the first failing condition.
-- Worsening a hard constraint cannot extend Choice Horizon.
-
----
-
-## 7. Choice Horizon definition
-
-Choice Horizon is the number of consecutive years for which all selected
-future choices remain feasible.
-
-Supported choices for the MVP:
-
-```text
-continue_operation
-successor_handover
-debt_free_exit
-```
-
-Each choice is represented by a Specification object.
-
-Examples:
-
-- `MinimumAnnualCashSpecification`
-- `MaximumDebtAtExitSpecification`
-- `RemainingEquipmentLifeSpecification`
-- `MaximumHeatRiskSpecification`
-
-Do not hide missing values. Missing financial values may be introduced only
-inside the demo scenario and must be tagged `demo_assumption`.
-
----
-
-## 8. Tax and milk-price handling
-
-The canonical milk-price unit is `yen_per_kg`.
-
-The UI may show a reference conversion to `yen_per_litre`, but it must label
-the density assumption.
-
-Supported milk-price input:
-
-```text
-direct input: 0–300 yen/kg
-change from base: -100–+100 yen/kg
-```
-
-At zero milk price, do not divide by zero. Return:
-
-```text
-recovery_impossible_at_zero_price
-```
-
-Consumption tax must not be applied as one blanket percentage to every input.
-
-The source material instructs users to use either tax-inclusive or
-tax-exclusive values consistently. Validate this basis explicitly.
-
----
-
-## 9. UI requirements
-
-For the hackathon MVP, prefer:
-
-- FastAPI;
-- Jinja2;
-- small amounts of vanilla JavaScript;
-- SVG for the barn plan;
-- server-rendered pages.
-
-Do not introduce React, Next.js, Three.js, a database, authentication, or a
-large CSS framework unless the repository already depends on them and the
-change clearly reduces work.
-
-Every result screen must show:
-
-- recommendation;
-- maximum acceptable investment;
-- break-even avoided milk loss;
-- Choice Horizon;
-- first failing condition;
-- provenance labels;
-- a sensitivity control for milk price;
-- a clear warning that the result is a screening estimate.
-
----
-
-## 10. Scope exclusions for the first vertical slice
-
-Do not implement:
-
-- CFD;
-- arbitrary CAD-like barn editing;
-- free-stall barns;
-- national demand forecasting;
-- milk-price forecasting;
-- OCR;
-- PDF generation;
-- user accounts;
-- database persistence;
-- subsidy eligibility;
-- tax advice;
-- automatic live equipment prices;
-- Monte Carlo simulation;
-- OR-Tools.
-
----
-
-## 11. Development workflow
-
-For every task:
-
-1. Inspect existing files before editing.
-2. State a short implementation plan.
-3. Write or update tests first for domain-rule changes.
-4. Implement the smallest complete change.
-5. Run all tests.
-6. Report:
-   - changed files;
-   - test command and result;
-   - assumptions added;
-   - remaining risks.
-
-Do not claim success without running the tests.
-
-Do not replace working deterministic code with an LLM call.
-
----
-
-## 12. Completion criteria
-
-The first vertical slice is complete only when:
-
-- a 60-cow demo scenario runs end to end;
-- a 75-cow scenario proves the layout is variable;
-- the default Zenrakuren calculation is reproduced;
-- milk price can be changed interactively;
-- zero milk price is handled safely;
-- three investment options are compared;
-- one no-feasible-option case is tested;
-- provenance appears in the UI;
-- all domain tests pass;
-- the README contains exact run commands.

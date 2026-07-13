@@ -1,154 +1,21 @@
-{
-  "package": "dairy_horizon_chiba_data_v4_prompting",
-  "generated_at": "2026-07-11",
-  "prompt_revision": {
-    "basis": [
-      "https://learn.chatgpt.com/docs/prompting",
-      "https://learn.chatgpt.com/docs/agent-configuration/agents-md"
-    ],
-    "changes": [
-      "split plan and build runs",
-      "start with required result",
-      "reduce duplicated instructions",
-      "name exact context paths",
-      "make verification and final report explicit",
-      "preserve stable rules in AGENTS.md"
-    ],
-    "agents_md_bytes": 9256
-  },
-  "validation": {
-    "status": "passed"
-  },
-  "files": [
-    {
-      "path": "AGENTS.md",
-      "size_bytes": 9256,
-      "sha256": "1f04b102dc5ee0e50cd17a1c182ff64993b22165e199821c930c9557bb5d84ca"
-    },
-    {
-      "path": "README.md",
-      "size_bytes": 2355,
-      "sha256": "5e463b28b8f4d8d552fa6b324251c83a67ac1235c0c7766e0d801057e60c3c37"
-    },
-    {
-      "path": "data/derived/chiba_demo_future_plus1c_hourly.csv",
-      "size_bytes": 3093,
-      "sha256": "ad0acf04879abb0c2ce18b8b69237cad2c1b7d7735686cdd54d2d49532a2eea8"
-    },
-    {
-      "path": "data/derived/chiba_demo_future_plus2c_hourly.csv",
-      "size_bytes": 3108,
-      "sha256": "270560d22c4d2a1d9120017d0f8b17f9c5b76cafe4a19bd0e9a411554a6986b8"
-    },
-    {
-      "path": "data/derived/demo_summary_metrics.json",
-      "size_bytes": 393,
-      "sha256": "7b093f2364f346b2c43f0775d2a63ac5dd20ea23555751f2a3ede83722298141"
-    },
-    {
-      "path": "data/derived/jma_chiba_2024_08_17_hourly_thi.csv",
-      "size_bytes": 2614,
-      "sha256": "717c3fa20c788cc57a1e1f053172615fd40d49dc2a3d9baa9bd5685544adeef6"
-    },
-    {
-      "path": "data/observed/jma_chiba_2024_08_17_hourly.csv",
-      "size_bytes": 2290,
-      "sha256": "660ef4d72698eff2e413054a36714f0c25a98a4124e0944b3d735dc4cd170de2"
-    },
-    {
-      "path": "data/observed/jma_chiba_2024_08_daily.csv",
-      "size_bytes": 3112,
-      "sha256": "15807698b7a5a487d568e79ce519c9f152940b1966593941ad7f7e369a962897"
-    },
-    {
-      "path": "data/provenance/sources.json",
-      "size_bytes": 2066,
-      "sha256": "282f9a62d9429c6eb47782bfe79bd389959de62fc20d7bf2fefe8843f96fcb45"
-    },
-    {
-      "path": "generated/chiba_60_cow_break_even.json",
-      "size_bytes": 478,
-      "sha256": "8aa607c24f9a66688cab695c14d38dfbaa36e269df3a7fccaa699720e32eab8d"
-    },
-    {
-      "path": "generated/chiba_60_cow_layout.json",
-      "size_bytes": 11871,
-      "sha256": "ffaf7a4e12d8f6ff82c0073b25e2daea180818d4cb4f41b894550e4b360107dc"
-    },
-    {
-      "path": "prompts/CODEX_BOOTSTRAP_PROMPT.md",
-      "size_bytes": 261,
-      "sha256": "388549539b877f351ae4c37c41348f49f5ba6df4b01a10a323f0af1412247ed6"
-    },
-    {
-      "path": "prompts/CODEX_BUILD_PROMPT.md",
-      "size_bytes": 2817,
-      "sha256": "a8f0812d7b4c5f4c5ac1b3c98d395fc7d4d44dd727e6ee610ba816349dec1b89"
-    },
-    {
-      "path": "prompts/CODEX_PHASE_PROMPTS.md",
-      "size_bytes": 3373,
-      "sha256": "14971221894c30f1e45ebff8c1a7b395d37185512b7e9af92db6830325862283"
-    },
-    {
-      "path": "prompts/CODEX_PLAN_PROMPT.md",
-      "size_bytes": 1611,
-      "sha256": "78751fc460c2048641b08fefffcf6d119c5d74ca8fd3dd6456d391742cc32783"
-    },
-    {
-      "path": "prompts/CODEX_START_HERE.md",
-      "size_bytes": 820,
-      "sha256": "5dc6bae7d22ce0e6a65053c76071e45e31b8f7a3bd0ce61f4eb2fae63ad052c1"
-    },
-    {
-      "path": "prompts/PROMPT_DESIGN_NOTES.md",
-      "size_bytes": 727,
-      "sha256": "30a1bbe47a5caa3c4cc84dfee49864b352a88f8f128904f73800c036435a3cf6"
-    },
-    {
-      "path": "scenarios/chiba_60_cow_demo.json",
-      "size_bytes": 1512,
-      "sha256": "cde8ece46d93b874e427208310b346cdf3b89c4da588f4b93c40855fb3084335"
-    },
-    {
-      "path": "scripts/calculate_zenrakuren_break_even.py",
-      "size_bytes": 8746,
-      "sha256": "21b4de86fc561b797661d29c42f5f6d6c8a8a2a55afacf338496d322c663b519"
-    },
-    {
-      "path": "scripts/generate_barn_layout.py",
-      "size_bytes": 7234,
-      "sha256": "e60b375203b9d0a08d413bbd6b349766e528749801bee14dc15de6808ddda597"
-    },
-    {
-      "path": "specs/ACCEPTANCE_CRITERIA.md",
-      "size_bytes": 1761,
-      "sha256": "67e43af6cb2dccdf2778e98407930ecc07a3e3cfaabaabcb3e1afaa0c8d4dce3"
-    },
-    {
-      "path": "specs/VARIABLE_MODEL_SPEC.md",
-      "size_bytes": 1184,
-      "sha256": "224fae4a0e8b6adca7bfb2039eecb39c85822e3202fc0f273081c592aadecc85"
-    },
-    {
-      "path": "specs/ZENRAKUREN_CALCULATION_SPEC.md",
-      "size_bytes": 7343,
-      "sha256": "213124cb4c443e7fd19921608cb162e9f3d14539addf97abb38106ea5797a42e"
-    },
-    {
-      "path": "templates/financial_input_schema.json",
-      "size_bytes": 3171,
-      "sha256": "ac47892202c51f09b0072c9de21069aa3415edb67ee0ada520a5e8ea74ba06ce"
-    },
-    {
-      "path": "templates/tie_stall_variable.json",
-      "size_bytes": 1371,
-      "sha256": "84633fc3d929dc03149cb6854ab460cc9afcc3b100859c154445aaa1ce09f6ca"
-    },
-    {
-      "path": "tests/test_variable_model.py",
-      "size_bytes": 4875,
-      "sha256": "3cf6f915ff59778a54079213bcf045e4b795ad13b422cb5b16f1394fd379d462"
-    }
-  ]
-}
+The MIT License
+
+Copyright © 2010-2024 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

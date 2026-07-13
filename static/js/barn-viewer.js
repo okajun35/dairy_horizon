@@ -1,89 +1,48 @@
-import * as THREE from '../vendor/three.module.min.js';
+const payload = JSON.parse(document.querySelector('#barn-payload').textContent);
+const viewer = document.querySelector('#barn-viewer');
+const detail = document.querySelector('#selection-detail');
+const summary = document.querySelector('#plan-summary-card');
+const tabs = [...document.querySelectorAll('.plan-tab')];
+const allCows = payload.cows_by_lane.flat();
 
-export function createBarnViewer(container, layout, cowIdByInstanceId, onSelect) {
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xe7efe8);
-  const maxDimension = Math.max(layout.barn_boundary.length_m, layout.barn_boundary.width_m);
-  const camera = new THREE.OrthographicCamera(-maxDimension, maxDimension, maxDimension, -maxDimension, 0.1, 200);
-  camera.position.set(layout.barn_boundary.length_m / 2, maxDimension * 1.25, layout.barn_boundary.width_m * 1.1);
-  camera.lookAt(layout.barn_boundary.length_m / 2, 0, layout.barn_boundary.width_m / 2);
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(width, height);
-  container.replaceChildren(renderer.domElement);
+let selectedPlan = 'current';
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x6a8275, 2));
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(layout.barn_boundary.length_m + 2, 0.2, layout.barn_boundary.width_m + 2), new THREE.MeshStandardMaterial({ color: 0xc9b99b }));
-  floor.position.set(layout.barn_boundary.length_m / 2, -0.15, layout.barn_boundary.width_m / 2);
-  scene.add(floor);
-  const aisle = new THREE.Mesh(new THREE.BoxGeometry(layout.barn_boundary.length_m, 0.05, 2.2), new THREE.MeshStandardMaterial({ color: 0x77847c }));
-  aisle.position.set(layout.barn_boundary.length_m / 2, 0.02, layout.barn_boundary.width_m / 2);
-  scene.add(aisle);
+function planFor(key) { return payload.plans.find((plan) => plan.key === key); }
 
-  const cowGeometry = new THREE.BoxGeometry(0.9, 0.7, 0.7);
-  const cows = new THREE.InstancedMesh(cowGeometry, new THREE.MeshStandardMaterial({ color: 0x8f6149 }), layout.cows.length);
-  const matrix = new THREE.Matrix4();
-  layout.cows.forEach((cow, index) => {
-    matrix.makeTranslation(cow.x_m, 0.42, cow.y_m);
-    cows.setMatrixAt(index, matrix);
-  });
-  cows.instanceMatrix.needsUpdate = true;
-  cows.userData.type = 'cow';
-  scene.add(cows);
-
-  const fanObjects = [];
-  layout.fans.forEach((fan) => {
-    const material = new THREE.MeshStandardMaterial({ color: fan.existing_assumed ? 0x2166ac : (fan.stage_one_selected ? 0xe07a20 : 0x8c9297) });
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.4, 12), material);
-    mesh.position.set(fan.x_m, 0.7, fan.y_m);
-    mesh.userData = { type: 'fan', fanId: fan.fan_id, lane: fan.lane_id, cowIds: fan.cow_ids };
-    scene.add(mesh);
-    fanObjects.push(mesh);
-  });
-
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
-  let dragging = false;
-  let moved = false;
-  let previous = null;
-  renderer.domElement.addEventListener('pointerdown', (event) => { dragging = true; moved = false; previous = { x: event.clientX, y: event.clientY }; });
-  renderer.domElement.addEventListener('pointermove', (event) => {
-    if (!dragging || !previous) return;
-    const dx = event.clientX - previous.x;
-    const dy = event.clientY - previous.y;
-    if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
-    const scale = maxDimension / (300 * camera.zoom);
-    camera.position.x -= dx * scale;
-    camera.position.z += dy * scale;
-    previous = { x: event.clientX, y: event.clientY };
-  });
-  renderer.domElement.addEventListener('pointerup', (event) => {
-    dragging = false;
-    if (moved) return;
-    const rect = renderer.domElement.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObjects([cows, ...fanObjects]);
-    if (!hits.length) return;
-    const hit = hits[0];
-    if (hit.object === cows && hit.instanceId !== undefined) {
-      const cow = layout.cows[hit.instanceId];
-      onSelect({ type: 'cow', cowId: cowIdByInstanceId[hit.instanceId], lane: cow.row, stall: cow.stall });
-    } else {
-      onSelect(hit.object.userData);
-    }
-  });
-  renderer.domElement.addEventListener('wheel', (event) => {
-    event.preventDefault();
-    camera.zoom = Math.min(3, Math.max(0.5, camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
-    camera.updateProjectionMatrix();
-  }, { passive: false });
-  window.addEventListener('resize', () => {
-    renderer.setSize(container.clientWidth, container.clientHeight);
-  });
-  const render = () => { renderer.render(scene, camera); requestAnimationFrame(render); };
-  render();
+function cowPosition(index, lane, count) {
+  const x = 58 + ((index + 0.5) / Math.max(count, 1)) * 690;
+  return { x, y: lane === 0 ? 94 : 218 };
 }
+
+function render() {
+  const plan = planFor(selectedPlan);
+  const covered = new Set(plan.covered_cow_ids);
+  const baseline = new Set(planFor('current').covered_cow_ids);
+  const cows = payload.cows_by_lane.map((lane, laneIndex) => lane.map((cowId, index) => {
+    const { x, y } = cowPosition(index, laneIndex, lane.length);
+    const color = baseline.has(cowId) ? '#356d8f' : covered.has(cowId) ? '#329265' : '#d17b32';
+    return `<g class="cow" data-cow="${cowId}" data-lane="${laneIndex + 1}" data-stall="${index + 1}"><ellipse cx="${x}" cy="${y}" rx="10" ry="7" fill="${color}"/><circle cx="${x + 8}" cy="${y - 3}" r="3" fill="${color}"/></g>`;
+  }).join('')).join('');
+  const fanCount = plan.active_fan_count;
+  const fans = Array.from({ length: fanCount }, (_, index) => {
+    const x = 58 + ((index + .5) / Math.max(fanCount, 1)) * 690;
+    const color = index < planFor('current').active_fan_count ? '#254f70' : selectedPlan === 'first_phase' ? '#277b58' : '#705b99';
+    return `<g class="fan" data-fan="F${String(index + 1).padStart(2, '0')}" data-index="${index}"><circle cx="${x}" cy="157" r="11" fill="${color}"/><path d="M${x - 8} 157h16M${x} 149v16" stroke="white" stroke-width="2"/></g>`;
+  }).join('');
+  viewer.innerHTML = `<svg viewBox="0 0 806 320" role="img" aria-label="${plan.label_ja}の牛舎"><path d="M35 52h736v216H35z" fill="#ded2ba" stroke="#7a705f" stroke-width="3"/><path d="M35 139h736v42H35z" fill="#829087"/><text x="48" y="76" fill="#43574b" font-size="14">第1牛床列</text><text x="48" y="265" fill="#43574b" font-size="14">第2牛床列</text>${cows}${fans}</svg>`;
+  viewer.querySelectorAll('.cow').forEach((node) => node.addEventListener('click', () => {
+    detail.textContent = `牛 ${node.dataset.cow} ／ 第${node.dataset.lane}牛床列 ／ 房${node.dataset.stall}`;
+  }));
+  viewer.querySelectorAll('.fan').forEach((node) => node.addEventListener('click', () => {
+    detail.textContent = `ファン ${node.dataset.fan} ／ ${Number(node.dataset.index) < planFor('current').active_fan_count ? '既存ファン' : '追加候補'}`;
+  }));
+  summary.innerHTML = `<h3>${plan.label_ja}</h3><dl><div><dt>追加する台数</dt><dd>${plan.additional_fan_count}台</dd></div><div><dt>新たにカバーする牛</dt><dd>${plan.newly_covered_cow_ids.length}頭</dd></div><div><dt>状態</dt><dd>${plan.status === 'NOT_REQUIRED' ? '追加不要' : '確認へ進む'}</dd></div></dl><p>${plan.additional_fan_count === 0 ? 'いまの配置を現場で確認します。' : 'この段階の設置位置と見積を確認します。'}</p>`;
+}
+
+tabs.forEach((tab) => tab.addEventListener('click', () => {
+  selectedPlan = tab.dataset.plan;
+  tabs.forEach((item) => item.classList.toggle('active', item === tab));
+  render();
+}));
+
+render();

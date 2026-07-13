@@ -1,0 +1,66 @@
+import { createBarnViewer } from './barn-viewer.js';
+
+const payloadNode = document.querySelector('#viewer-payload');
+if (!payloadNode) throw new Error('viewer payload is missing');
+const payload = JSON.parse(payloadNode.textContent);
+const detail = document.querySelector('#selection-detail');
+
+const viewer = createBarnViewer(document.querySelector('#barn-viewer'), payload, (selection) => {
+  if (selection.type === 'cow') {
+    detail.textContent = `牛 ${selection.cowId} ／ 第${selection.lane}牛床列 ／ 房${selection.stall}`;
+  } else {
+    detail.textContent = `ファン ${selection.fanId} ／ 第${selection.lane}牛床列 ／ 対象牛 ${selection.cowIds.join(', ')}`;
+  }
+});
+
+const nodes = {
+  card: document.querySelector('#plan-summary-card'),
+  status: document.querySelector('#plan-status'),
+  title: document.querySelector('#plan-title'),
+  fans: document.querySelector('#plan-fans'),
+  covered: document.querySelector('#plan-covered'),
+  capex: document.querySelector('#plan-capex'),
+  cash: document.querySelector('#plan-cash'),
+  affordable: document.querySelector('#plan-affordable'),
+  gap: document.querySelector('#plan-gap'),
+  assumedLoss: document.querySelector('#assumed-loss'),
+  requiredLoss: document.querySelector('#required-loss'),
+  lossGap: document.querySelector('#loss-gap'),
+  nextTitle: document.querySelector('#next-step-title'),
+  nextDescription: document.querySelector('#next-step-description'),
+  nextAction: document.querySelector('#next-step-action'),
+  selectedInput: document.querySelector('#selected-plan-input'),
+};
+
+function updatePlan(planKey) {
+  const plan = payload.plans[planKey];
+  if (!plan) return;
+  viewer.setPlan(planKey);
+  document.querySelectorAll('.plan-tab').forEach((button) => {
+    button.classList.toggle('active', button.dataset.plan === planKey);
+    button.setAttribute('aria-selected', button.dataset.plan === planKey ? 'true' : 'false');
+  });
+  if (nodes.selectedInput) nodes.selectedInput.value = planKey;
+  nodes.card.dataset.status = plan.status_key;
+  nodes.status.textContent = plan.status_label_ja;
+  nodes.title.textContent = plan.label_ja;
+  nodes.fans.textContent = planKey === 'baseline' ? '追加投資なし' : `${plan.incremental_fan_count}台を追加`;
+  nodes.covered.textContent = planKey === 'baseline' ? '現在のカバー状況' : `${plan.newly_covered_cow_count}頭を新たにカバー`;
+  nodes.capex.textContent = plan.capex_display;
+  nodes.cash.textContent = plan.cash_required_display;
+  nodes.affordable.textContent = plan.affordable_range_display;
+  nodes.gap.textContent = plan.standard_gap_display;
+  nodes.gap.className = `gap-message ${plan.standard_gap_tone}`;
+  nodes.assumedLoss.textContent = plan.assumed_loss_display;
+  nodes.requiredLoss.textContent = plan.required_loss_display;
+  nodes.lossGap.textContent = plan.loss_gap_display;
+  nodes.nextTitle.textContent = plan.next_step.title;
+  nodes.nextDescription.textContent = plan.next_step.description;
+  nodes.nextAction.textContent = plan.next_step.action;
+}
+
+document.querySelectorAll('.plan-tab').forEach((button) => {
+  button.addEventListener('click', () => updatePlan(button.dataset.plan));
+});
+
+updatePlan(payload.initialPlan);

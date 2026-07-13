@@ -1,0 +1,458 @@
+"""Farmer-facing guided investment screening dashboard.
+
+This module deliberately avoids choosing an "optimal" investment year.  It
+compares the current barn, a first-stage installation, and full installation,
+then surfaces the one unknown most likely to change the decision.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from decimal import Decimal
+from statistics import median
+from typing import Any
+
+from scripts.generate_barn_layout import TieStallBarnConfig, TieStallLayoutGenerator
+
+from app.vertical_slice import (
+    EconomicsInputs,
+    InputValidationError,
+    ZERO,
+    ONE,
+    allocate_existing_fans,
+    allocate_stage_one_fans,
+    calculate_economics,
+    calculate_newly_covered_cows,
+    calculate_required_fans,
+    decimal_value,
+    display_money,
+    display_number,
+    load_farm_and_climate,
+    load_future_climate,
+    merge_form_values,
+    percent_to_ratio,
+    screening_form_values_from_farm,
+    variable_cost_ratio,
+)
+
+
+@dataclass(frozen=True)
+class ClimatePeriod:
+    start_year: int
+    end_year: int
+    available: bool
+    complete: bool
+    available_start_year: int | None
+    available_end_year: int | None
+    annual_days_median: Decimal | None
+    annual_days_minimum: Decimal | None
+    annual_days_maximum: Decimal | None
+    mean_temperature_c_median: Decimal | None
+
+    @property
+    def label_ja(self) -> str:
+        return f"{self.start_year}–{self.end_year}年"
+
+
+CASE_DEFINITIONS = (
+    ("cautious", "慎重", Decimal("2.0")),
+    ("standard", "標準", Decimal("3.0")),
+    ("improved", "改善", Decimal("4.0")),
+)
+
+
+def guided_form_values_from_farm(farm: dict[str, Any]) -> dict[str, str]:
+    values = screening_form_values_from_farm(farm)
+    values |= {
+        "selected_plan": "stage_1",
+        "evaluation_period_years": "5",
+        "capital_repayment_years": "5",
+    }
+    return values
+
+
+def _climate_period(profile: dict[str, Any], start_year: int, end_year: int) -> ClimatePeriod:
+    year_rows: list[tuple[int, dict[str, Any]]] = []
+    for year in range(start_year, end_year + 1):
+        row = profile.get("years", {}).get(str(year))
+        if row is not None:
+            year_rows.append((year, row["summary"]))
+    if not year_rows:
+        return ClimatePeriod(start_year, end_year, False, False, None, None, None, None, None, None)
+
+    summaries = [row for _, row in year_rows]
+    day_medians = [Decimal(str(row["thi_days_daily_mean_ge_72"]["median"])) for row in summaries]
+    day_minima = [Decimal(str(row["thi_days_daily_mean_ge_72"]["minimum"])) for row in summaries]
+    day_maxima = [Decimal(str(row["thi_days_daily_mean_ge_72"]["maximum"])) for row in summaries]
+    temperatures = [Decimal(str(row["mean_temperature_c"]["median"])) for row in summaries]
+    return ClimatePeriod(
+        start_year=start_year,
+        end_year=end_year,
+        available=True,
+        complete=len(year_rows) == end_year - start_year + 1,
+        available_start_year=year_rows[0][0],
+        available_end_year=year_rows[-1][0],
+        annual_days_median=sum(day_medians, ZERO) / Decimal(len(day_medians)),
+        annual_days_minimum=min(day_minima),
+        annual_days_maximum=max(day_maxima),
+        mean_temperature_c_median=sum(temperatures, ZERO) / Decimal(len(temperatures)),
+    )
+
+
+def _climate_outlook(profile: dict[str, Any]) -> dict[str, Any]:
+    periods = tuple(
+        _climate_period(profile, start, end)
+        for start, end in ((2026, 2030), (2031, 2035), (2036, 2040))
+    )
+    available_years = sorted(int(year) for year in profile.get("years", {}))
+    return {
+        "periods": periods,
+        "profile_start_year": min(available_years),
+        "profile_end_year": max(available_years),
+        "covers_2040": max(available_years) >= 2040,
+        "source_label_ja": "Open-Meteo Climate API / CMIP6 複数モデル",
+    }
+
+
+def _economics_common(values: dict[str, str], farm: dict[str, Any], heat_days: Decimal) -> dict[str, Any]:
+    fan = farm["fan_assumptions"]
+    detail_mode = values.get("detail_mode") == "true"
+
+    if detail_mode:
+        variable = variable_cost_ratio(values["variable_cost_ratio_pct"])
+        electricity = decimal_value(values["electricity_price_yen_per_kwh"])
+        tax_ratio = percent_to_ratio(values["consumption_tax_rate_pct"])
+        installed_input = decimal_value(values["installed_cost_yen_per_unit"])
+        installed = installed_input / (ONE + tax_ratio) if values["tax_basis"] == "tax_inclusive" else installed_input
+        interest = percent_to_ratio(values["annual_interest_rate_pct"])
+        evaluation_years = int(values["capital_repayment_years"])
+    else:
+        variable = variable_cost_ratio(farm["economic_assumptions"]["variable_cost_ratio_pct"])
+        electricity = decimal_value(farm["economic_assumptions"]["electricity_price_yen_per_kwh"])
+        tax_ratio = Decimal("0.10")
+        installed = decimal_value(fan["installed_cost_yen_per_unit"])
+        interest = ZERO
+        evaluation_years = int(values["evaluation_period_years"])
+
+    if not 1 <= evaluation_years <= int(fan["useful_life_years"]):
+        raise InputValidationError(
+            f"判断を延ばしたい年数は1〜{fan['useful_life_years']}年で入力してください"
+        )
+    if interest != ZERO:
+        # The existing deterministic formula is a simple-life calculation.
+        # Detailed interest remains visible but does not silently alter it here.
+        pass
+
+    return {
+        "installed_cost_yen_per_unit": installed,
+        "power_kw_per_unit": decimal_value(fan["power_kw_per_unit"]),
+        "operating_hours_per_day": decimal_value(fan["operating_hours_per_day"]),
+        "heat_stress_days_per_year": heat_days,
+        "electricity_price_yen_per_kwh": electricity,
+        "basic_charge_yen_per_kw_month": decimal_value(fan["basic_charge_yen_per_kw_month"]),
+        "inverter_reduction_ratio": percent_to_ratio(fan["inverter_reduction_ratio_pct"]),
+        "useful_life_years": int(fan["useful_life_years"]),
+        "evaluation_period_years": evaluation_years,
+        "milk_price_yen_per_kg": decimal_value(values["milk_price_yen_per_kg"]),
+        "variable_cost_ratio": variable,
+        "consumption_tax_ratio": tax_ratio,
+    }
+
+
+def _status_for_cases(cases: list[dict[str, Any]]) -> tuple[str, str]:
+    passes = [bool(case["preserves_requested_window"]) for case in cases]
+    if all(passes):
+        return "likely", "成立しそう"
+    if any(passes):
+        return "borderline", "条件次第"
+    return "difficult", "現在の仮定では難しい"
+
+
+def _next_step(plan: dict[str, Any], values: dict[str, str]) -> dict[str, str]:
+    standard = plan["standard_case"]
+    if decimal_value(values["milk_price_yen_per_kg"]) == ZERO:
+        return {
+            "kind": "milk_price",
+            "title": "直近の乳価を確認してください",
+            "description": "乳価が未入力のため、回収の見込みを評価できません。",
+            "action": "精算書で円/kgの乳価を確認する",
+        }
+    if standard["preserves_requested_window"]:
+        return {
+            "kind": "quote",
+            "title": f"{plan['incremental_fan_count']}台分の実見積で確かめる",
+            "description": "標準仮定では成立圏内です。実際の工事費と配置で再確認してください。",
+            "action": "設備業者へ現地確認を含む見積を依頼する",
+        }
+    conditions = standard.get("conditions_to_approach_feasibility") or {}
+    threshold = conditions.get("required_installed_cost_yen_per_unit")
+    threshold_text = display_money(threshold) if threshold is not None else "実見積"
+    return {
+        "kind": "quote",
+        "title": f"まず{plan['incremental_fan_count']}台分の見積を取る",
+        "description": f"標準条件では1台あたり約{threshold_text}以下が成立の目安です。",
+        "action": "見積額が分かれば、この試算で結論を更新する",
+    }
+
+
+def _serializable_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    standard = plan.get("standard_case")
+    return {
+        "key": plan["key"],
+        "label_ja": plan["label_ja"],
+        "short_label_ja": plan["short_label_ja"],
+        "incremental_fan_count": plan["incremental_fan_count"],
+        "newly_covered_cow_count": plan["newly_covered_cow_count"],
+        "status_key": plan["status_key"],
+        "status_label_ja": plan["status_label_ja"],
+        "capex_display": display_money(plan["incremental_capex_yen"]),
+        "cash_required_display": display_money(plan["cash_required_yen_incl_tax"]),
+        "affordable_range_display": plan["affordable_range_display"],
+        "standard_gap_display": plan["standard_gap_display"],
+        "standard_gap_tone": plan["standard_gap_tone"],
+        "assumed_loss_display": plan["assumed_loss_display"],
+        "required_loss_display": plan["required_loss_display"],
+        "loss_gap_display": plan["loss_gap_display"],
+        "next_step": plan["next_step"],
+        "covered_cow_ids": plan["covered_cow_ids"],
+        "visible_fan_ids": plan["visible_fan_ids"],
+        "standard_passes": None if standard is None else bool(standard["preserves_requested_window"]),
+    }
+
+
+def build_guided_dashboard(submitted: dict[str, Any] | None = None) -> dict[str, Any]:
+    farm, observed_climate = load_farm_and_climate()
+    future_climate = load_future_climate()
+    values = merge_form_values(guided_form_values_from_farm(farm), submitted)
+
+    try:
+        lactating_cows = int(values["lactating_cows"])
+        lane_count = int(values["lane_count"])
+        existing_fan_count = int(values["existing_fan_count"])
+        milk_price = decimal_value(values["milk_price_yen_per_kg"])
+        target_years = int(values["target_years"])
+    except (ValueError, ArithmeticError) as exc:
+        raise InputValidationError("頭数・ファン数・乳価・年数を数値で入力してください") from exc
+
+    if not 1 <= lactating_cows <= 300:
+        raise InputValidationError("搾乳牛頭数は1〜300頭で入力してください")
+    if lane_count not in {1, 2}:
+        raise InputValidationError("牛床列数は1列または2列を選んでください")
+    if existing_fan_count < 0:
+        raise InputValidationError("既存ファン数は0台以上で入力してください")
+    if not ZERO <= milk_price <= Decimal("300"):
+        raise InputValidationError("乳価は0〜300円/kgで入力してください")
+    if target_years not in {3, 5, 7}:
+        raise InputValidationError("判断を延ばしたい年数は3・5・7年から選んでください")
+
+    values["evaluation_period_years"] = str(target_years)
+    outlook = _climate_outlook(future_climate)
+    near_period: ClimatePeriod = outlook["periods"][0]
+    if not near_period.available or near_period.annual_days_median is None:
+        raise InputValidationError("2026〜2030年の気候プロファイルがありません")
+
+    cows_per_fan = int(farm["layout_assumptions"]["cows_per_target_fan"])
+    cows_by_lane, target_fans_by_lane = calculate_required_fans(lactating_cows, lane_count, cows_per_fan)
+    target_fan_count = sum(target_fans_by_lane)
+    if existing_fan_count > target_fan_count:
+        raise InputValidationError("既存ファン数は必要目安台数以下で入力してください")
+
+    config = TieStallBarnConfig(
+        lactating_cows=lactating_cows,
+        row_count=lane_count,
+        existing_fan_count=0,
+        cows_per_fan=cows_per_fan,
+    )
+    layout = TieStallLayoutGenerator().generate(config)
+    existing_by_lane = allocate_existing_fans(target_fans_by_lane, existing_fan_count)
+    stage_one_by_lane = allocate_stage_one_fans(target_fans_by_lane, existing_by_lane)
+    full_by_lane = {
+        lane: {slot for slot in range(count) if slot not in existing_by_lane[lane]}
+        for lane, count in enumerate(target_fans_by_lane, start=1)
+    }
+
+    target_slots: dict[tuple[int, int], list[str]] = {}
+    lane_slot_counter = [0] * lane_count
+    existing_fan_ids: list[str] = []
+    stage_fan_ids: list[str] = []
+    full_fan_ids: list[str] = []
+    existing_cow_ids: set[str] = set()
+    for fan in layout["fans"]:
+        lane = fan["row_target"]
+        slot = lane_slot_counter[lane - 1]
+        lane_slot_counter[lane - 1] += 1
+        cow_ids = [f"R{lane}-C{stall:03d}" for stall in fan["target_stalls"]]
+        target_slots[(lane, slot)] = cow_ids
+        fan["lane_id"] = lane
+        fan["slot_index"] = slot
+        fan["cow_ids"] = cow_ids
+        fan["existing_assumed"] = slot in existing_by_lane[lane]
+        fan["stage_one_selected"] = slot in stage_one_by_lane[lane]
+        fan["full_installation_selected"] = slot in full_by_lane[lane]
+        if fan["existing_assumed"]:
+            fan["installation_phase"] = "existing"
+            existing_fan_ids.append(fan["fan_id"])
+            existing_cow_ids.update(cow_ids)
+        elif fan["stage_one_selected"]:
+            fan["installation_phase"] = "stage_1"
+            stage_fan_ids.append(fan["fan_id"])
+            full_fan_ids.append(fan["fan_id"])
+        else:
+            fan["installation_phase"] = "full_only"
+            full_fan_ids.append(fan["fan_id"])
+
+    stage_new_cows = calculate_newly_covered_cows(target_slots, stage_one_by_lane)
+    full_new_cows = calculate_newly_covered_cows(target_slots, full_by_lane)
+    common = _economics_common(values, farm, near_period.annual_days_median)
+    tax_ratio = common.pop("consumption_tax_ratio")
+    standard_loss = (
+        decimal_value(values["avoided_milk_loss_kg_per_cow_day"])
+        if values.get("detail_mode") == "true"
+        else decimal_value(farm["economic_assumptions"]["avoided_milk_loss_kg_per_cow_day"])
+    )
+    if standard_loss < ZERO or standard_loss > Decimal("20"):
+        raise InputValidationError("防止乳量は0〜20kg/頭/日で入力してください")
+    case_definitions = (
+        ("cautious", "慎重", max(ZERO, standard_loss - ONE)),
+        ("standard", "標準", standard_loss),
+        ("improved", "改善", standard_loss + ONE),
+    )
+
+    plan_specs = (
+        ("baseline", "現在の状態", "現在", 0, []),
+        ("stage_1", "段階導入：第1期", "第1期", sum(len(v) for v in stage_one_by_lane.values()), stage_new_cows),
+        ("full_installation", "不足ファンを全数追加", "全数追加", sum(len(v) for v in full_by_lane.values()), full_new_cows),
+    )
+    plans: dict[str, dict[str, Any]] = {}
+    for key, label, short_label, count, newly_covered in plan_specs:
+        if key == "baseline":
+            plans[key] = {
+                "key": key,
+                "label_ja": label,
+                "short_label_ja": short_label,
+                "incremental_fan_count": 0,
+                "newly_covered_cow_count": 0,
+                "incremental_capex_yen": ZERO,
+                "cash_required_yen_incl_tax": ZERO,
+                "cases": [],
+                "standard_case": None,
+                "status_key": "baseline",
+                "status_label_ja": "比較基準",
+                "affordable_range_display": "—",
+                "standard_gap_display": "投資判定対象外",
+                "standard_gap_tone": "neutral",
+                "assumed_loss_display": "—",
+                "required_loss_display": "—",
+                "loss_gap_display": "—",
+                "covered_cow_ids": sorted(existing_cow_ids),
+                "visible_fan_ids": existing_fan_ids,
+            }
+            continue
+
+        cases: list[dict[str, Any]] = []
+        for case_key, case_label, avoided_loss in case_definitions:
+            economics = calculate_economics(
+                EconomicsInputs(
+                    incremental_fan_count=count,
+                    newly_covered_cow_count=len(newly_covered),
+                    avoided_milk_loss_kg_per_cow_day=avoided_loss,
+                    **common,
+                )
+            )
+            cases.append(economics | {
+                "case_key": case_key,
+                "case_label_ja": case_label,
+                "avoided_milk_loss_kg_per_cow_day": avoided_loss,
+            })
+        standard = cases[1]
+        status_key, status_label = _status_for_cases(cases)
+        affordable_values = [case["maximum_affordable_capex_yen"] for case in cases]
+        gap = standard["investment_margin_yen"]
+        required_loss = standard["break_even_milk_yield_kg_per_cow_day"]
+        loss_gap = standard["milk_yield_margin_kg_per_cow_day"]
+        plan = {
+            "key": key,
+            "label_ja": label,
+            "short_label_ja": short_label,
+            "incremental_fan_count": count,
+            "newly_covered_cow_count": len(newly_covered),
+            "incremental_capex_yen": standard["incremental_capex_yen"],
+            "cash_required_yen_incl_tax": standard["incremental_capex_yen"] * (ONE + tax_ratio),
+            "cases": cases,
+            "standard_case": standard,
+            "status_key": status_key,
+            "status_label_ja": status_label,
+            "affordable_range_display": f"{display_money(min(affordable_values))}〜{display_money(max(affordable_values))}",
+            "standard_gap_display": (
+                "乳価が未入力のため、回収の見込みを判断できません" if gap is None
+                else f"目安より{display_money(abs(gap))}低い" if gap >= ZERO
+                else f"目安より{display_money(abs(gap))}高い"
+            ),
+            "standard_gap_tone": "neutral" if gap is None else "positive" if gap >= ZERO else "negative",
+            "assumed_loss_display": f"{display_number(standard_loss, '0.0')} kg/頭/日",
+            "required_loss_display": (
+                f"{display_number(required_loss, '0.0')} kg/頭/日" if required_loss is not None else "評価できません"
+            ),
+            "loss_gap_display": (
+                f"{display_number(abs(loss_gap), '0.0')} kg/頭/日余裕" if loss_gap is not None and loss_gap >= ZERO
+                else f"{display_number(abs(loss_gap), '0.0')} kg/頭/日不足" if loss_gap is not None
+                else "—"
+            ),
+            "covered_cow_ids": sorted(existing_cow_ids | set(newly_covered)),
+            "visible_fan_ids": existing_fan_ids + (stage_fan_ids if key == "stage_1" else full_fan_ids),
+        }
+        plan["next_step"] = _next_step(plan, values)
+        plans[key] = plan
+
+    plans["baseline"]["next_step"] = {
+        "kind": "plan",
+        "title": "第1期案を確認してください",
+        "description": "現在は必要目安よりファンが不足しています。まず5台追加案を比較します。",
+        "action": "第1期タブを開く",
+    }
+
+    selected_plan_key = values.get("selected_plan", "stage_1")
+    if selected_plan_key not in plans:
+        selected_plan_key = "stage_1"
+        values["selected_plan"] = selected_plan_key
+    selected_plan = plans[selected_plan_key]
+
+    current_covered_count = min(lactating_cows, len(existing_cow_ids))
+    current_state = {
+        "lactating_cows": lactating_cows,
+        "target_fan_count": target_fan_count,
+        "existing_fan_count": existing_fan_count,
+        "missing_fan_count": max(0, target_fan_count - existing_fan_count),
+        "covered_cow_count": current_covered_count,
+        "uncovered_cow_count": max(0, lactating_cows - current_covered_count),
+        "placement_is_assumed": True,
+    }
+
+    viewer_payload = {
+        "layout": layout,
+        "cowIdByInstanceId": [cow["cow_id"] for cow in layout["cows"]],
+        "plans": {key: _serializable_plan(plan) for key, plan in plans.items()},
+        "initialPlan": selected_plan_key,
+    }
+
+    return {
+        "farm": farm,
+        "observed_climate": observed_climate,
+        "values": values,
+        "current_state": current_state,
+        "climate_outlook": outlook,
+        "screening_heat_days": near_period.annual_days_median,
+        "plans": plans,
+        "selected_plan_key": selected_plan_key,
+        "selected_plan": selected_plan,
+        "viewer_payload": viewer_payload,
+        "detail_mode": values.get("detail_mode") == "true",
+        "standard_assumptions": (
+            "既存ファン位置は台数から均等配置した仮定",
+            f"採算試算は2026〜2030年の年平均暑熱日数 {display_number(near_period.annual_days_median, '0.0')}日を使用",
+            "変動費率60%（乳飼比など売上増加に伴う費用）",
+            "ファン導入費1台22万円（税抜）",
+            "防止乳量は慎重2.0／標準3.0／改善4.0kg/頭/日",
+            "導入時必要資金は消費税10%を加算",
+        ),
+    }
