@@ -34,7 +34,7 @@ def main() -> int:
     parser.add_argument("--latitude", type=float)
     parser.add_argument("--longitude", type=float)
     parser.add_argument("--start-year", type=int, default=2025)
-    parser.add_argument("--end-year", type=int, default=2034)
+    parser.add_argument("--end-year", type=int, default=2050)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     region = REGIONS[args.region_id]

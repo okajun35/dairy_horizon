@@ -113,18 +113,17 @@ class ClimateProfileTest(unittest.TestCase):
         self.assertIn("required_avoided_milk_loss_kg_per_cow_day", conditions)
         self.assertIn("required_milk_price_yen_per_kg", conditions)
 
-    def test_web_shows_projection_timeline_and_investment_timing_controls(self) -> None:
+    def test_web_shows_small_input_screening_and_investment_timing_options(self) -> None:
         response = CLIENT.get("/")
         self.assertEqual(200, response.status_code)
-        self.assertIn("2026〜2034年の見通し", response.text)
-        self.assertIn("気候モデルのシナリオ", response.text)
+        self.assertIn("30秒試算", response.text)
+        self.assertIn("標準仮定 6件を使っています", response.text)
+        self.assertIn("今から始める", response.text)
+        self.assertIn("おすすめより3年後", response.text)
         self.assertIn('name="lactating_cows" type="number" min="1" max="300" value="60"', response.text)
         self.assertIn('name="existing_fan_count" type="number" min="0" value="10"', response.text)
-        self.assertIn('name="stage_one_year"', response.text)
-        self.assertIn('name="annual_cash_before_heat_yen"', response.text)
-        self.assertIn('value="1600000"', response.text)
-        self.assertIn('name="maximum_debt_yen"', response.text)
-        self.assertIn('id="timeline-chart"', response.text)
+        self.assertIn('name="target_years"', response.text)
+        self.assertIn("実際の1台当たり導入費", response.text)
         response = CLIENT.post(
             "/",
             data={
@@ -132,13 +131,23 @@ class ClimateProfileTest(unittest.TestCase):
                 "milk_price_yen_per_kg": "170", "variable_cost_ratio_pct": "60",
                 "avoided_milk_loss_kg_per_cow_day": "3", "electricity_price_yen_per_kwh": "27",
                 "installed_cost_yen_per_unit": "220000", "evaluation_period_years": "5",
-                "climate_year": "2034", "stage_one_year": "2028", "full_installation_year": "2029",
-                "milk_price_change_yen_per_kg_per_year": "0", "electricity_price_change_pct_per_year": "0",
+                "target_years": "7",
                 "selected_plan": "full_installation",
             },
         )
         self.assertEqual(200, response.status_code)
-        self.assertIn("2028年 第1期 → 2029年 全数整備", response.text)
+        self.assertIn("設定した7年間を守れる可能性", response.text)
+
+        response = CLIENT.post(
+            "/",
+            data={
+                "lactating_cows": "60", "lane_count": "2", "existing_fan_count": "10",
+                "milk_price_yen_per_kg": "135", "target_years": "20",
+            },
+        )
+        self.assertEqual(200, response.status_code)
+        self.assertIn("2045年まで、いつ動くか", response.text)
+        self.assertIn("デモ延長", response.text)
 
 
 if __name__ == "__main__":

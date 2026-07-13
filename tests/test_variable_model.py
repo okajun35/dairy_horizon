@@ -251,8 +251,8 @@ class VariableModelTest(unittest.TestCase):
     def test_web_initial_display_and_recalculation(self) -> None:
         response = CLIENT.get("/")
         self.assertEqual(200, response.status_code)
-        self.assertIn('id="barn-viewer"', response.text)
-        self.assertIn('id="cow-id-by-instance-id"', response.text)
+        self.assertIn("30秒試算", response.text)
+        self.assertIn("詳細試算", response.text)
 
         response = CLIENT.post(
             "/",
@@ -266,11 +266,12 @@ class VariableModelTest(unittest.TestCase):
                 "electricity_price_yen_per_kwh": "27",
                 "installed_cost_yen_per_unit": "220000",
                 "evaluation_period_years": "5",
+                "target_years": "5",
                 "selected_plan": "full_installation",
             },
         )
         self.assertEqual(200, response.status_code)
-        self.assertIn("必要ファン 26 台", response.text)
+        self.assertIn("設定した5年間を守れる可能性", response.text)
 
     def test_zero_milk_price_post_is_recovery_impossible(self) -> None:
         response = CLIENT.post(
@@ -289,7 +290,7 @@ class VariableModelTest(unittest.TestCase):
             },
         )
         self.assertEqual(200, response.status_code)
-        self.assertIn("zero_milk_price", response.text)
+        self.assertIn("乳価が未入力のため、回収の見込みを判断できません", response.text)
 
     def test_quote_request_contains_required_details(self) -> None:
         quote = build_dashboard()["quote_request"]

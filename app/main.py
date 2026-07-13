@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -11,10 +10,10 @@ from fastapi.templating import Jinja2Templates
 
 from app.vertical_slice import (
     InputValidationError,
-    build_dashboard,
+    build_screening_dashboard,
     display_money,
     display_number,
-    form_values_from_farm,
+    screening_form_values_from_farm,
     load_farm_and_climate,
 )
 
@@ -27,36 +26,39 @@ templates.env.globals.update(money=display_money, number=display_number)
 
 
 def render(request: Request, dashboard: dict[str, Any], error: str | None = None) -> HTMLResponse:
-    layout = dashboard["layout"]
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
             "dashboard": dashboard,
             "error": error,
-            "layout_json": json.dumps(layout, ensure_ascii=False),
-            "cow_id_by_instance_id": json.dumps([cow["cow_id"] for cow in layout["cows"]], ensure_ascii=False),
         },
     )
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
-    return render(request, build_dashboard())
+    return render(request, build_screening_dashboard())
 
 
 @app.post("/", response_class=HTMLResponse)
 def recalculate(
     request: Request,
-    lactating_cows: str = Form(...),
-    lane_count: str = Form(...),
-    existing_fan_count: str = Form(...),
-    milk_price_yen_per_kg: str = Form(...),
-    variable_cost_ratio_pct: str = Form(...),
-    avoided_milk_loss_kg_per_cow_day: str = Form(...),
-    electricity_price_yen_per_kwh: str = Form(...),
-    installed_cost_yen_per_unit: str = Form(...),
-    evaluation_period_years: str = Form(...),
+    lactating_cows: str = Form("60"),
+    lane_count: str = Form("2"),
+    existing_fan_count: str = Form("10"),
+    milk_price_yen_per_kg: str = Form("135"),
+    target_years: str = Form("5"),
+    detail_mode: str = Form("false"),
+    variable_cost_ratio_pct: str = Form("60"),
+    avoided_milk_loss_kg_per_cow_day: str = Form("3"),
+    electricity_price_yen_per_kwh: str = Form("27"),
+    installed_cost_yen_per_unit: str = Form("220000"),
+    consumption_tax_rate_pct: str = Form("10"),
+    tax_basis: str = Form("tax_exclusive"),
+    annual_interest_rate_pct: str = Form("0"),
+    capital_repayment_years: str = Form("7"),
+    evaluation_period_years: str = Form("5"),
     climate_year: str = Form("2030"),
     stage_one_year: str = Form(""),
     full_installation_year: str = Form(""),
@@ -75,10 +77,16 @@ def recalculate(
         "lane_count": lane_count,
         "existing_fan_count": existing_fan_count,
         "milk_price_yen_per_kg": milk_price_yen_per_kg,
+        "target_years": target_years,
+        "detail_mode": detail_mode,
         "variable_cost_ratio_pct": variable_cost_ratio_pct,
         "avoided_milk_loss_kg_per_cow_day": avoided_milk_loss_kg_per_cow_day,
         "electricity_price_yen_per_kwh": electricity_price_yen_per_kwh,
         "installed_cost_yen_per_unit": installed_cost_yen_per_unit,
+        "consumption_tax_rate_pct": consumption_tax_rate_pct,
+        "tax_basis": tax_basis,
+        "annual_interest_rate_pct": annual_interest_rate_pct,
+        "capital_repayment_years": capital_repayment_years,
         "evaluation_period_years": evaluation_period_years,
         "climate_year": climate_year,
         "stage_one_year": stage_one_year,
@@ -94,9 +102,9 @@ def recalculate(
         "selected_plan": selected_plan,
     }
     try:
-        return render(request, build_dashboard(submitted))
+        return render(request, build_screening_dashboard(submitted))
     except (InputValidationError, ValueError) as exc:
         farm, _ = load_farm_and_climate()
-        dashboard = build_dashboard()
-        dashboard["values"] = form_values_from_farm(farm) | submitted
+        dashboard = build_screening_dashboard()
+        dashboard["values"] = screening_form_values_from_farm(farm) | submitted
         return render(request, dashboard, str(exc))

@@ -12,9 +12,9 @@ python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload
 ```
 
-ブラウザで `http://127.0.0.1:8000/` を開きます。千葉・60頭・2牛床列・既存10台のデモが初期表示されます。
+ブラウザで `http://127.0.0.1:8000/` を開きます。千葉市・60頭・2牛床列・既存10台のデモが初期表示されます。
 
-画面は、気象庁による2024年観測と、2025〜2034年のCMIP6由来・複数気候モデルの予測シナリオを明確に分けて表示します。Webアプリは外部APIを呼ばず、`data/climate_profiles/generated/` に保存済みのJSONだけを読みます。将来年では、日平均THI 72以上の日数のモデル中央値を簡易回収計算に使い、最小〜最大のモデル範囲で結論が変わる場合は画面に警告を表示します。
+主画面は精密な経営計画ではなく、30秒で行う投資スクリーニングです。農家が入力するのは、頭数・列数・既存ファン・乳価・守りたい年数だけです。標準仮定6件を明示し、「今」「おすすめ時期」「おすすめより3年後」を慎重／標準／改善の3ケースで比較します。Webアプリは外部APIを呼ばず、`data/climate_profiles/generated/` に保存済みのJSONだけを読みます。
 
 ## 将来気候プロファイルの更新
 
@@ -30,15 +30,13 @@ python scripts/fetch_climate_profiles.py --region-id chiba_city
 ```bash
 python scripts/fetch_climate_profiles.py \
   --region-id chiba_city --latitude 35.6074 --longitude 140.1065 \
-  --start-year 2025 --end-year 2034 \
-  --output data/climate_profiles/generated/chiba_city_2025_2034.json
+  --start-year 2026 --end-year 2050 \
+  --output data/climate_profiles/generated/chiba_city_2026_2050.json
 ```
 
 生成JSONには、モデルごとのリクエストURL、取得日時、返却座標・単位、成功/失敗、年別モデル値、中央値・最小・最大、集計規則と出典を保存します。日平均THIはスクリーニング用で、日最高THI、牛体付近の風速、個体の乳量実測を代替しません。屋外10m風速は投資計算に使用しません。
 
-画面では、既存ファン位置を台数から均等配置したデモ仮定として表示します。新規被覆頭数もこの仮配置に基づく推計であり、現地の実測配置ではありません。
-
-投資案は、baseline、段階導入：第1期、不足全数追加です。表示する回収判定は、金利・割引率を考慮しない評価期間内の単純回収です。
+詳細試算では、実際の見積、電力量単価、変動費率、実測乳量差、消費税率・税込/税抜、金利、返済年数を標準仮定へ置き換えられます。融資・税務の最終判断は専門家へ確認してください。
 
 Three.jsは `0.170.0` をローカルに同梱しています。配布元は `https://unpkg.com/three@0.170.0/`、取得日は2026-07-12、SHA-256は `08fd7545d13d2c7fb65ab691530a802dafefd638596501854f267d0fb13c39e7` です。MITライセンスは `static/vendor/three.LICENSE.txt` を参照してください。
 

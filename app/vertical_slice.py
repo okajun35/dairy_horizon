@@ -14,13 +14,21 @@ from app.future_simulator import (
     recommend_timing,
     simulate_future,
 )
+from app.screening import (
+    ClimateYear,
+    ScreeningAssumptions,
+    ScreeningInput,
+    ScreeningValidationError,
+    build_screening,
+)
 from scripts.generate_barn_layout import TieStallBarnConfig, TieStallLayoutGenerator
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FARM_PATH = ROOT / "data/farms/chiba_60_cow_demo.json"
 CLIMATE_DIR = ROOT / "data/climate_profiles"
-FUTURE_CLIMATE_PATH = CLIMATE_DIR / "generated/chiba_city_2025_2034.json"
+FUTURE_CLIMATE_PATH = CLIMATE_DIR / "generated/chiba_city_2026_2050.json"
+LEGACY_FUTURE_CLIMATE_PATH = CLIMATE_DIR / "generated/chiba_city_2025_2034.json"
 
 ZERO = Decimal("0")
 ONE = Decimal("1")
@@ -71,7 +79,8 @@ def load_farm_and_climate() -> tuple[dict[str, Any], dict[str, Any]]:
 
 def load_future_climate() -> dict[str, Any]:
     """Load the versioned profile shipped with the app; never fetch on a request."""
-    return json.loads(FUTURE_CLIMATE_PATH.read_text(encoding="utf-8"))
+    path = FUTURE_CLIMATE_PATH if FUTURE_CLIMATE_PATH.exists() else LEGACY_FUTURE_CLIMATE_PATH
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def form_values_from_farm(farm: dict[str, Any]) -> dict[str, str]:
@@ -98,6 +107,26 @@ def form_values_from_farm(farm: dict[str, Any]) -> dict[str, str]:
         "existing_fans_service_until_year": str(future["existing_fans_service_until_year"]),
         "maximum_uncovered_cow_heat_days": str(future["maximum_uncovered_cow_heat_days"]),
         "selected_plan": "full_installation",
+    }
+
+
+def screening_form_values_from_farm(farm: dict[str, Any]) -> dict[str, str]:
+    """The five farmer inputs, with all other values kept as visible standards."""
+    return {
+        "lactating_cows": str(farm["barn_input"]["lactating_cows"]),
+        "lane_count": str(farm["barn_input"]["lane_count"]),
+        "existing_fan_count": str(farm["barn_input"]["existing_fan_count"]),
+        "milk_price_yen_per_kg": str(farm["economic_assumptions"]["milk_price_yen_per_kg"]),
+        "target_years": "5",
+        "detail_mode": "false",
+        "variable_cost_ratio_pct": str(farm["economic_assumptions"]["variable_cost_ratio_pct"]),
+        "avoided_milk_loss_kg_per_cow_day": str(farm["economic_assumptions"]["avoided_milk_loss_kg_per_cow_day"]),
+        "electricity_price_yen_per_kwh": str(farm["economic_assumptions"]["electricity_price_yen_per_kwh"]),
+        "installed_cost_yen_per_unit": str(farm["fan_assumptions"]["installed_cost_yen_per_unit"]),
+        "consumption_tax_rate_pct": "10",
+        "tax_basis": "tax_exclusive",
+        "annual_interest_rate_pct": "0",
+        "capital_repayment_years": str(farm["fan_assumptions"]["useful_life_years"]),
     }
 
 
@@ -475,6 +504,104 @@ def failure_label_ja(condition: str | None) -> str:
         "cash_reserve_depleted": "手元資金が不足する",
         None: "期間内に大きな制約はありません",
     }.get(condition, condition or "期間内に大きな制約はありません")
+
+
+def _screening_climate_years(future_climate: dict[str, Any]) -> tuple[ClimateYear, ...]:
+    """Use generated model medians, then transparently extend the screening horizon.
+
+    The bundled profile currently ends in 2034.  Years after that retain a
+    conservative +2 days/year screening extension until a refreshed CMIP6
+    profile is generated; the UI labels this as a demo assumption.
+    """
+    source_years = future_climate["years"]
+    available = [
+        ClimateYear(year=int(year), heat_stress_days=decimal_value(data["summary"]["thi_days_daily_mean_ge_72"]["median"]))
+        for year, data in sorted(source_years.items()) if int(year) >= 2026
+    ]
+    if not available:
+        raise InputValidationError("generated climate profile has no screening years")
+    last = available[-1]
+    for year in range(last.year + 1, 2046):
+        last = ClimateYear(year=year, heat_stress_days=last.heat_stress_days + Decimal("2"))
+        available.append(last)
+    return tuple(available)
+
+
+def _screening_assumptions(values: dict[str, str], farm: dict[str, Any]) -> ScreeningAssumptions:
+    fan = farm["fan_assumptions"]
+    economic = farm["economic_assumptions"]
+    if values["detail_mode"] == "true":
+        variable = variable_cost_ratio(values["variable_cost_ratio_pct"])
+        standard_loss = decimal_value(values["avoided_milk_loss_kg_per_cow_day"])
+        electricity = decimal_value(values["electricity_price_yen_per_kwh"])
+        tax_ratio = percent_to_ratio(values["consumption_tax_rate_pct"])
+        installed_input = decimal_value(values["installed_cost_yen_per_unit"])
+        installed = installed_input / (ONE + tax_ratio) if values["tax_basis"] == "tax_inclusive" else installed_input
+        interest = percent_to_ratio(values["annual_interest_rate_pct"])
+        repayment_years = int(values["capital_repayment_years"])
+    else:
+        variable = variable_cost_ratio(economic["variable_cost_ratio_pct"])
+        standard_loss = decimal_value(economic["avoided_milk_loss_kg_per_cow_day"])
+        electricity = decimal_value(economic["electricity_price_yen_per_kwh"])
+        installed = decimal_value(fan["installed_cost_yen_per_unit"])
+        tax_ratio = Decimal("0.10")
+        interest = ZERO
+        repayment_years = int(fan["useful_life_years"])
+    cautious = max(Decimal("0"), standard_loss - ONE)
+    improved = standard_loss + ONE
+    return ScreeningAssumptions(
+        cows_per_fan=int(farm["layout_assumptions"]["cows_per_target_fan"]),
+        installed_cost_yen_per_unit_excl_tax=installed,
+        electricity_price_yen_per_kwh=electricity,
+        power_kw_per_unit=decimal_value(fan["power_kw_per_unit"]),
+        operating_hours_per_day=decimal_value(fan["operating_hours_per_day"]),
+        basic_charge_yen_per_kw_month=decimal_value(fan["basic_charge_yen_per_kw_month"]),
+        inverter_reduction_ratio=percent_to_ratio(fan["inverter_reduction_ratio_pct"]),
+        useful_life_years=int(fan["useful_life_years"]),
+        variable_cost_ratio=variable,
+        consumption_tax_ratio=tax_ratio,
+        annual_interest_rate=interest,
+        capital_repayment_years=repayment_years,
+        max_uncovered_cow_heat_days=Decimal("3200"),
+        avoided_milk_loss_cases=(cautious, standard_loss, improved),
+    )
+
+
+def build_screening_dashboard(submitted: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Build the farmer-facing, five-input screening screen."""
+    farm, climate = load_farm_and_climate()
+    future_climate = load_future_climate()
+    values = merge_form_values(screening_form_values_from_farm(farm), submitted)
+    try:
+        screening_input = ScreeningInput(
+            lactating_cows=int(values["lactating_cows"]),
+            lane_count=int(values["lane_count"]),
+            existing_fan_count=int(values["existing_fan_count"]),
+            milk_price_yen_per_kg=decimal_value(values["milk_price_yen_per_kg"]),
+            target_years=int(values["target_years"]),
+        )
+        screening = build_screening(
+            screening_input,
+            _screening_assumptions(values, farm),
+            _screening_climate_years(future_climate),
+        )
+    except (ScreeningValidationError, ValueError) as exc:
+        raise InputValidationError(str(exc)) from exc
+    cows_by_lane, targets_by_lane = calculate_required_fans(
+        screening_input.lactating_cows, screening_input.lane_count,
+        int(farm["layout_assumptions"]["cows_per_target_fan"]),
+    )
+    return {
+        "farm": farm,
+        "climate": climate,
+        "future_climate_extension_is_demo": max(int(year) for year in future_climate["years"]) < screening.target_end_year,
+        "values": values,
+        "screening": screening,
+        "target_fan_count": sum(targets_by_lane),
+        "additional_fan_count": max(0, sum(targets_by_lane) - screening_input.existing_fan_count),
+        "cows_by_lane": cows_by_lane,
+        "detail_mode": values["detail_mode"] == "true",
+    }
 
 
 def build_dashboard(submitted: dict[str, Any] | None = None) -> dict[str, Any]:
