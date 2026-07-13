@@ -8,6 +8,8 @@
 </head>
 <body>
   {% set nav = dashboard.navigation %}
+  {% set current_plan = nav.plans[0] %}
+  {% set selected_plan = nav.plans[1] if nav.inputs.first_phase_fan_count is not none else current_plan %}
   <main>
     <header class="intro">
       <p class="eyebrow">Dairy Horizon</p>
@@ -24,36 +26,62 @@
     </form>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
-    <section class="barn-section" aria-labelledby="barn-heading">
-      <div class="barn-panel">
-        <p class="section-kicker">牛舎と現在状態</p>
-        <h2 id="barn-heading">どの牛床に風が届くか</h2>
-        <div id="barn-viewer" class="barn-viewer" aria-label="牛舎の2.5D表示"></div>
-        <p class="legend"><span class="covered"></span>カバー済み <span class="newly-covered"></span>第1期でカバー <span class="uncovered"></span>未カバー推計</p>
-        <p id="selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
+    <section class="barn-comparison" aria-labelledby="barn-heading">
+      <div class="comparison-row">
+        <div class="barn-panel">
+          <p class="section-kicker">現在の牛舎</p>
+          <h2 id="barn-heading">いま、どの牛床に風が届くか</h2>
+          <div id="current-barn-viewer" class="barn-viewer" aria-label="現在の牛舎の2.5D表示"></div>
+          <p class="legend"><span class="covered"></span>カバー済み <span class="uncovered"></span>未カバー推計</p>
+          <p id="current-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
+        </div>
+        <aside class="state-panel" aria-label="現在の不足">
+          <p class="section-kicker">現在の不足</p>
+          <dl>
+            <div><dt>搾乳牛</dt><dd>{{ nav.inputs.lactating_cows }}頭</dd></div>
+            <div><dt>必要目安</dt><dd>{{ nav.required_fan_count }}台</dd></div>
+            <div><dt>既存</dt><dd>{{ nav.inputs.existing_fan_count }}台</dd></div>
+            <div class="shortage"><dt>不足</dt><dd>{{ nav.shortage_fan_count }}台</dd></div>
+            <div><dt>未カバー推計</dt><dd>{{ nav.inputs.lactating_cows - current_plan.covered_cow_ids|length }}頭</dd></div>
+          </dl>
+          <p>列ごとの必要目安：{% for amount in nav.required_fans_by_lane %}{{ amount }}台{% if not loop.last %} ／ {% endif %}{% endfor %}</p>
+        </aside>
       </div>
-      <aside class="state-panel" aria-live="polite">
-        <p class="section-kicker">現在の状態</p>
-        <dl>
-          <div><dt>搾乳牛</dt><dd>{{ nav.inputs.lactating_cows }}頭</dd></div>
-          <div><dt>必要目安</dt><dd>{{ nav.required_fan_count }}台</dd></div>
-          <div><dt>既存</dt><dd>{{ nav.inputs.existing_fan_count }}台</dd></div>
-          <div class="shortage"><dt>不足</dt><dd>{{ nav.shortage_fan_count }}台</dd></div>
-          <div><dt>未カバー推計</dt><dd>{{ nav.inputs.lactating_cows - nav.plans[0].covered_cow_ids|length }}頭</dd></div>
-        </dl>
-        <p>列ごとの必要目安：{% for amount in nav.required_fans_by_lane %}{{ amount }}台{% if not loop.last %} ／ {% endif %}{% endfor %}</p>
-      </aside>
-    </section>
 
-    <section class="pathway" aria-labelledby="pathway-heading">
-      <p class="section-kicker">適応投資経路</p>
-      <h2 id="pathway-heading">一気に決めず、整備段階を比べます</h2>
-      <div class="plan-tabs" role="tablist">
-        {% for plan in nav.plans %}
-          <button type="button" class="plan-tab {% if loop.first %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
-        {% endfor %}
+      <div class="comparison-row">
+        <div class="barn-panel comparison-barn-panel">
+          <p class="section-kicker">比較後の牛舎</p>
+          <h2>追加すると、どこが変わるか</h2>
+          <div class="plan-tabs" role="tablist" aria-label="比較する整備段階">
+            {% for plan in nav.plans[1:] %}
+              <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
+            {% endfor %}
+          </div>
+          <form class="first-phase-control" method="get">
+            <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
+            <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
+            <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
+            <label>第1期に追加する台数
+              <span><input name="first_phase_fan_count" type="number" min="0" max="{{ nav.shortage_fan_count }}" value="{{ nav.plans[1].additional_fan_count }}"> 台</span>
+            </label>
+            <button type="submit">比較を更新</button>
+          </form>
+          <div id="comparison-barn-viewer" class="barn-viewer" aria-label="比較後の牛舎の2.5D表示"></div>
+          <p class="legend"><span class="covered"></span>既存でカバー <span class="newly-covered"></span>追加でカバー <span class="uncovered"></span>未カバー推計</p>
+          <p id="comparison-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
+        </div>
+        <aside class="state-panel comparison-state" aria-live="polite" aria-labelledby="selected-plan-heading">
+          <p class="section-kicker">比較するとどう変わるか</p>
+          <h3 id="selected-plan-heading" data-selected-label>{{ selected_plan.label_ja }}</h3>
+          <dl>
+            <div><dt>追加する台数</dt><dd data-selected-additional>+{{ selected_plan.additional_fan_count }}台</dd></div>
+            <div><dt>稼働ファン</dt><dd data-selected-active>{{ selected_plan.active_fan_count }}台</dd></div>
+            <div><dt>新たにカバー推計</dt><dd data-selected-newly>+{{ selected_plan.newly_covered_cow_ids|length }}頭</dd></div>
+            <div><dt>未カバー推計</dt><dd data-selected-uncovered>{{ nav.inputs.lactating_cows - selected_plan.covered_cow_ids|length }}頭</dd></div>
+          </dl>
+          <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}現在より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}現在の状態を確認しています。{% endif %}</p>
+        </aside>
       </div>
-      <article id="plan-summary-card" class="plan-summary"></article>
     </section>
 
     <section class="next-step" aria-labelledby="next-heading">

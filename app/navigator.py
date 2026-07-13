@@ -13,7 +13,7 @@ from typing import Literal
 
 
 COWS_PER_FAN = 3
-FIRST_PHASE_FAN_COUNT = 5
+DEFAULT_FIRST_PHASE_FAN_COUNT = 5
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,7 @@ class BarnInput:
     lactating_cows: int
     lane_count: int
     existing_fan_count: int
+    first_phase_fan_count: int | None = None
     region_ja: str = "千葉市"
 
 
@@ -132,7 +133,12 @@ def build_navigation(inputs: BarnInput) -> BarnNavigation:
         cows_by_lane,
         _allocate_fans(inputs.existing_fan_count, required_by_lane),
     )
-    first_phase = min(FIRST_PHASE_FAN_COUNT, shortage)
+    if inputs.first_phase_fan_count is None:
+        first_phase = min(DEFAULT_FIRST_PHASE_FAN_COUNT, shortage)
+    else:
+        if not 0 <= inputs.first_phase_fan_count <= shortage:
+            raise InputValidationError(f"第1期に追加する台数は、不足{shortage}台の範囲で入力してください。")
+        first_phase = inputs.first_phase_fan_count
     plans = (
         _plan("current", "現在", 0, inputs, cows_by_lane, required_by_lane, baseline_covered, shortage),
         _plan("first_phase", "第1期：小さく始める", first_phase, inputs, cows_by_lane, required_by_lane, baseline_covered, shortage),

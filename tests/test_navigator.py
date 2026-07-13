@@ -17,6 +17,11 @@ class NavigatorTest(unittest.TestCase):
         self.assertEqual(result.plans[1].additional_fan_count, 5)
         self.assertEqual(len(result.plans[1].newly_covered_cow_ids), 15)
 
+    def test_first_phase_case_can_be_changed_within_the_shortage(self) -> None:
+        result = build_navigation(BarnInput(60, 2, 10, first_phase_fan_count=3))
+        self.assertEqual(result.plans[1].additional_fan_count, 3)
+        self.assertEqual(len(result.plans[1].newly_covered_cow_ids), 9)
+
     def test_75_cows_are_split_deterministically(self) -> None:
         result = build_navigation(BarnInput(75, 2, 12))
         self.assertEqual(tuple(len(lane) for lane in result.cows_by_lane), (38, 37))
@@ -30,10 +35,21 @@ class NavigatorTest(unittest.TestCase):
     def test_screen_contains_barn_and_evidence(self) -> None:
         response = TestClient(app).get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn('id="barn-viewer"', response.text)
+        self.assertIn('id="current-barn-viewer"', response.text)
+        self.assertIn('id="comparison-barn-viewer"', response.text)
+        self.assertIn("現在の牛舎", response.text)
+        self.assertIn("比較後の牛舎", response.text)
+        self.assertIn("比較するとどう変わるか", response.text)
+        self.assertIn("data-selected-uncovered", response.text)
         self.assertIn("標準仮定・計算根拠", response.text)
+        self.assertIn('name="first_phase_fan_count"', response.text)
         self.assertIn("将来気候から投資年や必要台数は決めません", response.text)
         self.assertNotIn("見積依頼文", response.text)
+
+    def test_changed_first_phase_opens_the_first_phase_view(self) -> None:
+        response = TestClient(app).get("/?lactating_cows=60&lane_count=2&existing_fan_count=10&first_phase_fan_count=3")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('"selected_plan": "first_phase"', response.text)
 
 
 if __name__ == "__main__":

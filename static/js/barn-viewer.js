@@ -1,11 +1,20 @@
 const payload = JSON.parse(document.querySelector('#barn-payload').textContent);
-const viewer = document.querySelector('#barn-viewer');
-const detail = document.querySelector('#selection-detail');
-const summary = document.querySelector('#plan-summary-card');
+const currentViewer = document.querySelector('#current-barn-viewer');
+const comparisonViewer = document.querySelector('#comparison-barn-viewer');
+const currentDetail = document.querySelector('#current-selection-detail');
+const comparisonDetail = document.querySelector('#comparison-selection-detail');
 const tabs = [...document.querySelectorAll('.plan-tab')];
 const allCows = payload.cows_by_lane.flat();
+const selectedState = {
+  label: document.querySelector('[data-selected-label]'),
+  additional: document.querySelector('[data-selected-additional]'),
+  active: document.querySelector('[data-selected-active]'),
+  newly: document.querySelector('[data-selected-newly]'),
+  uncovered: document.querySelector('[data-selected-uncovered]'),
+  change: document.querySelector('[data-selected-change]'),
+};
 
-let selectedPlan = 'current';
+let selectedPlan = payload.selected_plan || 'current';
 
 function planFor(key) { return payload.plans.find((plan) => plan.key === key); }
 
@@ -14,8 +23,7 @@ function cowPosition(index, lane, count) {
   return { x, y: lane === 0 ? 94 : 218 };
 }
 
-function render() {
-  const plan = planFor(selectedPlan);
+function renderBarn(viewer, detail, plan) {
   const covered = new Set(plan.covered_cow_ids);
   const baseline = new Set(planFor('current').covered_cow_ids);
   const cows = payload.cows_by_lane.map((lane, laneIndex) => lane.map((cowId, index) => {
@@ -36,13 +44,26 @@ function render() {
   viewer.querySelectorAll('.fan').forEach((node) => node.addEventListener('click', () => {
     detail.textContent = `ファン ${node.dataset.fan} ／ ${Number(node.dataset.index) < planFor('current').active_fan_count ? '既存ファン' : '追加候補'}`;
   }));
-  summary.innerHTML = `<h3>${plan.label_ja}</h3><dl><div><dt>追加する台数</dt><dd>${plan.additional_fan_count}台</dd></div><div><dt>新たにカバーする牛</dt><dd>${plan.newly_covered_cow_ids.length}頭</dd></div><div><dt>状態</dt><dd>${plan.status === 'NOT_REQUIRED' ? '追加不要' : '確認へ進む'}</dd></div></dl><p>${plan.additional_fan_count === 0 ? 'いまの配置を現場で確認します。' : 'この段階の設置位置と見積を確認します。'}</p>`;
+}
+
+function renderComparison() {
+  const plan = planFor(selectedPlan);
+  renderBarn(comparisonViewer, comparisonDetail, plan);
+  selectedState.label.textContent = plan.label_ja;
+  selectedState.additional.textContent = `+${plan.additional_fan_count}台`;
+  selectedState.active.textContent = `${plan.active_fan_count}台`;
+  selectedState.newly.textContent = `+${plan.newly_covered_cow_ids.length}頭`;
+  selectedState.uncovered.textContent = `${allCows.length - plan.covered_cow_ids.length}頭`;
+  selectedState.change.textContent = plan.newly_covered_cow_ids.length
+    ? `現在より ${plan.newly_covered_cow_ids.length}頭少なくなります。`
+    : '現在の状態を確認しています。';
 }
 
 tabs.forEach((tab) => tab.addEventListener('click', () => {
   selectedPlan = tab.dataset.plan;
   tabs.forEach((item) => item.classList.toggle('active', item === tab));
-  render();
+  renderComparison();
 }));
 
-render();
+renderBarn(currentViewer, currentDetail, planFor('current'));
+renderComparison();
