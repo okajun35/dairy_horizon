@@ -13,7 +13,12 @@ h1, h2, p { margin-top: 0; } h1 { font-size: clamp(1.8rem, 4vw, 2.7rem); margin-
 .candidate-confirmation h3 { margin:0; font-size:1.05rem; }
 .candidate-fields { display:grid; grid-template-columns:1.2fr repeat(3, minmax(120px, .75fr)) auto; align-items:end; gap:12px; margin-top:14px; }
 .candidate-fields input { width:100%; }
+.candidate-fields small { color:#557064; font-weight:500; }
 .candidate-missing { color:#8a4a22 !important; }
+.reference-option { margin-top:14px; padding:14px; border-left:4px solid #39785d; border-radius:8px; background:#edf6ef; }
+.reference-option p { margin:0 0 8px; font-size:.86rem; }
+.reference-option form { display:flex; justify-content:flex-start; }
+.reference-pathway { border-color:#b9cfbd; background:#f0f6ef; }
 .quick-inputs { display:grid; grid-template-columns:minmax(180px, 1.35fr) minmax(130px, .8fr) minmax(120px, .7fr) minmax(140px, .85fr) auto; align-items:end; column-gap:24px; row-gap:16px; padding:20px; border:1px solid #d7dfd3; background:#fff; border-radius:14px; margin:24px 0; }
 .quick-inputs .input-field { min-width:0; gap:8px; }
 .quick-inputs .field-label { min-height:1.2em; }
@@ -22,6 +27,7 @@ h1, h2, p { margin-top: 0; } h1 { font-size: clamp(1.8rem, 4vw, 2.7rem); margin-
 .quick-inputs .region-field input { width:100%; }
 .quick-inputs .unit { flex:0 0 auto; font-weight:650; }
 .quick-inputs button { white-space:nowrap; }
+.quick-input-actions { display:flex; align-items:end; gap:8px; }
 label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, select, button { font: inherit; } input, select { min-height: 36px; border: 1px solid #b8c6bd; border-radius: 7px; padding: 5px 8px; background: #fff; } input[type=number] { width: 84px; } button { min-height: 38px; border: 0; border-radius: 8px; padding: 8px 14px; background: #28684f; color: #fff; cursor: pointer; font-weight: 700; }
 .barn-comparison { border: 1px solid #d4ddd2; background: #fff; border-radius: 16px; overflow: hidden; } .comparison-row { display:grid; grid-template-columns:minmax(0, 3fr) minmax(235px, 1fr); } .comparison-row + .comparison-row { border-top: 2px solid #bed0c2; } .barn-panel { padding: 22px; min-height: 440px; } .comparison-barn-panel { background:#f8fbf6; } .state-panel { padding: 24px 22px; border-left: 1px solid #d4ddd2; background: #edf3eb; } .state-panel dl { margin: 18px 0; } .state-panel dl div { display:flex; justify-content:space-between; padding: 12px 0; border-bottom: 1px solid #d3dfd5; } dt { font-size:.9rem; } dd { margin: 0; font-size: 1.25rem; font-weight: 750; } .shortage dd { color: #a44227; } .comparison-state h3 { margin:0; font-size:1.12rem; } .comparison-state dd { color:#276c4d; } .comparison-state > p:last-child { margin:10px 0 0; font-size:.86rem; color:#3e6250; }
 .barn-viewer { min-height: 320px; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #e6eee7, #f7f6ed); } .barn-viewer svg { display:block; width:100%; height:320px; } .barn-viewer .cow, .barn-viewer .fan { cursor:pointer; } .barn-viewer .cow:hover, .barn-viewer .fan:hover { filter: brightness(.78); }

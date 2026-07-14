@@ -10,6 +10,8 @@ from app.natural_input import (
     NaturalInputUnavailable,
     OpenAINaturalInputInterpreter,
 )
+from app.navigator import BarnInput
+from app.pathways import build_path_comparison
 
 
 def _response_payload(output: dict[str, object]) -> dict[str, object]:
@@ -114,7 +116,7 @@ class OpenAINaturalInputInterpreterTest(unittest.TestCase):
     "Set RUN_OPENAI_INTEGRATION_TESTS=1 to call the live OpenAI API.",
 )
 class OpenAINaturalInputLiveTest(unittest.TestCase):
-    def test_live_api_extracts_demo_barn(self) -> None:
+    def test_live_api_extracts_demo_barn_for_confirmed_pathway(self) -> None:
         interpreter = OpenAINaturalInputInterpreter.from_environment()
 
         result = interpreter.interpret("千葉市で搾乳牛60頭、牛床は2列、既存ファンは10台です")
@@ -124,6 +126,20 @@ class OpenAINaturalInputLiveTest(unittest.TestCase):
         self.assertEqual(result.lane_count, 2)
         self.assertEqual(result.existing_fan_count, 10)
         self.assertEqual(result.missing_fields, ())
+
+        confirmed_inputs = BarnInput(
+            lactating_cows=result.lactating_cows or 0,
+            lane_count=result.lane_count or 0,
+            existing_fan_count=result.existing_fan_count or 0,
+            region_ja=result.region_ja or "",
+        )
+        comparison = build_path_comparison(confirmed_inputs, investment_year=2028)
+        current, first_phase, full_coverage = comparison.paths
+        self.assertEqual([year.uncovered_cow_count for year in current.years], [30] * 5)
+        self.assertEqual([year.uncovered_cow_count for year in first_phase.years], [30, 30, 15, 15, 15])
+        self.assertEqual(first_phase.cumulative_uncovered_cow_years, 105)
+        self.assertEqual([year.uncovered_cow_count for year in full_coverage.years], [30, 30, 0, 0, 0])
+        self.assertEqual(full_coverage.cumulative_uncovered_cow_years, 60)
 
 
 if __name__ == "__main__":

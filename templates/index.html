@@ -16,6 +16,7 @@
   {% set full_path = pathway.paths[2] %}
   {% set selected_plan = nav.plans[1] %}
   {% set selected_path = first_path %}
+  {% set reference_mode = dashboard.input_mode == 'guideline_reference' %}
   <main>
     <header class="intro">
       <p class="eyebrow">Dairy Horizon</p>
@@ -36,16 +37,29 @@
       {% if candidate %}
         <div class="candidate-confirmation">
           <h3>AIが読み取った候補（未確認）</h3>
-          <p>内容を確認・修正してください。この時点では牛舎計算に使っていません。</p>
+          <p>読み取れた値と標準設定を確認できます。不明な値を現在値としては扱いません。</p>
           <form class="candidate-fields" method="get" action="/">
-            <label>地域<input name="region_ja" value="{{ candidate.region_ja or '' }}" required></label>
-            <label>搾乳牛頭数<input name="lactating_cows" type="number" min="1" max="300" value="{{ candidate.lactating_cows or '' }}" required></label>
-            <label>牛床列数<input name="lane_count" type="number" min="1" max="6" value="{{ candidate.lane_count or '' }}" required></label>
-            <label>既存ファン数<input name="existing_fan_count" type="number" min="0" value="{% if candidate.existing_fan_count is not none %}{{ candidate.existing_fan_count }}{% endif %}" required></label>
-            <button type="submit">確認して牛舎を計算</button>
+            <label>地域<input name="region_ja" value="{{ candidate.region_ja }}" required><small>{% if candidate.region_defaulted %}現在の対応地域として設定{% else %}入力から読み取り{% endif %}</small></label>
+            <label>搾乳牛頭数<input name="lactating_cows" type="number" min="1" max="300" value="{{ candidate.lactating_cows or '' }}" required><small>{% if candidate.lactating_cows is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
+            <label>牛床列数<input name="lane_count" type="number" min="1" max="6" value="{{ candidate.lane_count or '' }}" required><small>{% if candidate.lane_count is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
+            <label>既存ファン数<input name="existing_fan_count" type="number" min="0" value="{% if candidate.existing_fan_count is not none %}{{ candidate.existing_fan_count }}{% endif %}" required><small>{% if candidate.existing_fan_count is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
+            <button type="submit">{% if candidate.existing_fan_count is none %}現在のファン数を入力して更新{% else %}確認して牛舎を計算{% endif %}</button>
           </form>
-          {% if candidate.missing_fields %}<p class="candidate-missing">読み取れなかった項目があります。空欄を入力してから計算してください。</p>{% endif %}
-          <p class="source-kind">user_input_candidate</p>
+          {% if candidate.missing_labels %}<p class="candidate-missing">確認が必要：{{ candidate.missing_labels|join('、') }}</p>{% endif %}
+          {% if candidate.reference_fan_count is not none %}
+            <div class="reference-option">
+              <p><strong>現在使っているファンは何台ですか？</strong></p>
+              <p>分からない場合は、頭数基準の{{ candidate.reference_fan_count }}台を配置した参考状態まで先に確認できます。現在の台数ではありませんが、参考状態として不足を評価します。</p>
+              <form method="get" action="/">
+                <input name="region_ja" type="hidden" value="{{ candidate.region_ja }}">
+                <input name="lactating_cows" type="hidden" value="{{ candidate.lactating_cows }}">
+                <input name="lane_count" type="hidden" value="{{ candidate.lane_count }}">
+                <input name="existing_fan_count" type="hidden" value="{{ candidate.reference_fan_count }}">
+                <input name="reference_mode" type="hidden" value="true">
+                <button type="submit">{{ candidate.reference_fan_count }}台の参考状態を見る</button>
+              </form>
+            </div>
+          {% endif %}
         </div>
       {% endif %}
     </section>
@@ -56,38 +70,52 @@
       <label class="input-field region-field"><span class="field-label">地域</span><span class="field-control"><input name="region_ja" value="{{ nav.inputs.region_ja }}" required></span></label>
       <label class="input-field"><span class="field-label">搾乳牛頭数</span><span class="field-control"><input name="lactating_cows" type="number" min="1" max="300" value="{{ nav.inputs.lactating_cows }}"><span class="unit">頭</span></span></label>
       <label class="input-field"><span class="field-label">牛床列数</span><span class="field-control"><select name="lane_count">{% for lane in range(1, 7) %}<option value="{{ lane }}"{% if nav.inputs.lane_count == lane %} selected{% endif %}>{{ lane }}列</option>{% endfor %}</select></span></label>
-      <label class="input-field"><span class="field-label">既存ファン数</span><span class="field-control"><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}"><span class="unit">台</span></span></label>
-      <button type="submit">牛舎を更新</button>
+      <label class="input-field"><span class="field-label">既存ファン数{% if reference_mode %}（参考値）{% endif %}</span><span class="field-control"><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}"><span class="unit">台</span></span></label>
+      {% if reference_mode %}
+        <div class="quick-input-actions">
+          <button type="submit" name="reference_mode" value="true">参考状態を更新</button>
+          <button type="submit">実際の台数として計算</button>
+        </div>
+      {% else %}
+        <button type="submit">牛舎を更新</button>
+      {% endif %}
     </form>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
     <section class="barn-comparison" aria-labelledby="barn-heading">
       <div class="comparison-row">
         <div class="barn-panel">
-          <p class="section-kicker">現在の牛舎</p>
-          <h2 id="barn-heading">いま、どの牛床に風が届くか</h2>
+          <p class="section-kicker">{% if reference_mode %}頭数基準の参考状態{% else %}現在の牛舎{% endif %}</p>
+          <h2 id="barn-heading">{% if reference_mode %}{{ current.existing_fan_count }}台を配置した場合{% else %}いま、どの牛床に風が届くか{% endif %}</h2>
           <div id="current-barn-viewer" class="barn-viewer" aria-label="現在の牛舎の2.5D表示"></div>
           <p class="legend"><span class="covered"></span>カバー済み <span class="uncovered"></span>未カバー推計</p>
           <p id="current-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
         </div>
-        <aside class="state-panel" aria-label="現在の不足">
-          <p class="section-kicker">現在の不足</p>
+        <aside class="state-panel" aria-label="{% if reference_mode %}頭数基準の参考状態{% else %}現在の不足{% endif %}">
+          <p class="section-kicker">{% if reference_mode %}頭数基準の参考状態{% else %}現在の不足{% endif %}</p>
           <dl>
             <div><dt>搾乳牛</dt><dd>{{ nav.inputs.lactating_cows }}頭</dd></div>
             <div><dt>頭数基準の台数目安</dt><dd>{{ current.guideline_fan_count }}台</dd></div>
-            <div><dt>既存</dt><dd>{{ current.existing_fan_count }}台</dd></div>
-            <div class="shortage"><dt>目安との差</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
-            <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
+            {% if reference_mode %}
+              <div><dt>現在のファン数</dt><dd>未確認</dd></div>
+              <div><dt>参考配置</dt><dd>{{ current.existing_fan_count }}台</dd></div>
+              <div class="shortage"><dt>参考状態での不足</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
+              <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
+            {% else %}
+              <div><dt>既存</dt><dd>{{ current.existing_fan_count }}台</dd></div>
+              <div class="shortage"><dt>目安との差</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
+              <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
+            {% endif %}
           </dl>
           <p>算出根拠：{{ nav.inputs.lactating_cows }}頭 ÷ {{ current.fan_capacity_cows_per_unit }}頭／台</p>
-          <p class="state-note">投資試算用の目安です。実際の必要台数は配置・性能・牛体付近風速で確認します。</p>
+          <p class="state-note">{% if reference_mode %}参考配置は現在ある台数ではありません。上の台数を増減して牛舎を更新できます。実際の台数が分かれば「実際の台数として計算」を選びます。{% else %}投資試算用の目安です。実際の必要台数は配置・性能・牛体付近風速で確認します。{% endif %}</p>
         </aside>
       </div>
 
       <div class="comparison-row">
         <div class="barn-panel comparison-barn-panel">
           <p class="section-kicker">比較後の牛舎</p>
-          <h2>追加すると、どこが変わるか</h2>
+          <h2>{% if reference_mode %}参考値から追加すると、どこが変わるか{% else %}追加すると、どこが変わるか{% endif %}</h2>
           <div class="plan-tabs" role="tablist" aria-label="比較する整備段階">
             {% for plan in nav.plans[1:] %}
               <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
@@ -98,6 +126,7 @@
             <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
             <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
             <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
+            {% if reference_mode %}<input name="reference_mode" type="hidden" value="true">{% endif %}
             <label>比較する実施年
               <select name="investment_year">
                 {% for year in range(pathway.start_year, pathway.end_year + 1) %}
@@ -114,7 +143,7 @@
             <button type="submit">比較を更新</button>
           </form>
           <div id="comparison-barn-viewer" class="barn-viewer" aria-label="比較後の牛舎の2.5D表示"></div>
-          <p class="legend"><span class="covered"></span>既存でカバー <span class="newly-covered"></span>追加でカバー <span class="uncovered"></span>未カバー推計</p>
+          <p class="legend"><span class="covered"></span>{% if reference_mode %}参考値でカバー{% else %}既存でカバー{% endif %} <span class="newly-covered"></span>追加でカバー <span class="uncovered"></span>未カバー推計</p>
           <p id="comparison-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
         </div>
         <aside class="state-panel comparison-state" aria-live="polite" aria-labelledby="selected-plan-heading">
@@ -125,13 +154,21 @@
             <div><dt>稼働ファン</dt><dd data-selected-active>{{ selected_plan.active_fan_count }}台</dd></div>
             <div><dt>新たにカバー推計</dt><dd data-selected-newly>+{{ selected_plan.newly_covered_cow_ids|length }}頭</dd></div>
             <div><dt>未カバー推計</dt><dd data-selected-uncovered>{{ nav.inputs.lactating_cows - selected_plan.covered_cow_ids|length }}頭</dd></div>
-            <div><dt>5年間の未カバー累計</dt><dd data-selected-cumulative>{{ selected_path.cumulative_uncovered_cow_years }}頭年</dd></div>
+            <div><dt>{% if reference_mode %}同じ頭数・同じ台数を置いた場合の5年間{% else %}5年間の未カバー累計{% endif %}</dt><dd data-selected-cumulative>{{ selected_path.cumulative_uncovered_cow_years }}頭年</dd></div>
           </dl>
-          <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}現在より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}現在の状態を確認しています。{% endif %}</p>
+          <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}{% if reference_mode %}参考値{% else %}現在{% endif %}より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}{% if reference_mode %}参考状態{% else %}現在の状態{% endif %}を確認しています。{% endif %}</p>
+          {% if reference_mode %}<p class="reference-limit-note">頭数・台数・3頭／台の基準を変えない比較です。将来の暑さに対する十分性は未評価です。</p>{% endif %}
         </aside>
       </div>
     </section>
 
+    {% if reference_mode %}
+    <section class="pathway reference-pathway" aria-labelledby="pathway-heading">
+      <p class="section-kicker">年度別経路</p>
+      <h2 id="pathway-heading">参考状態では、{{ current.existing_fan_count }}台で不足を評価しています</h2>
+      <p>上の参考値を増減し、比較後の牛舎で追加案を確認できます。画面の5年間は、頭数・ファン台数・3頭／台の基準が変わらない場合の設備状態です。保存済みの将来THIデータはまだ画面へ接続しておらず、将来の暑さに対する十分性は未評価です。</p>
+    </section>
+    {% else %}
     <section class="pathway pathway-comparison" aria-labelledby="pathway-heading">
       <p class="section-kicker">年度別経路</p>
       <h2 id="pathway-heading">{{ pathway.start_year }}〜{{ pathway.end_year }}年の5年間の経路比較</h2>
@@ -162,11 +199,12 @@
       </div>
       <p class="pathway-note">未カバー累計（頭年）は、各年の未カバー推計牛を合計した比較指標です。乳量損失や金額ではありません。実施年は推薦ではなく、違いを確かめるための比較条件です。</p>
     </section>
+    {% endif %}
 
     <section class="next-step" aria-labelledby="next-heading">
       <p class="section-kicker">次の一手</p>
-      <h2 id="next-heading">{{ nav.next_question_ja }}</h2>
-      <p>{{ nav.next_action_ja }}</p>
+      <h2 id="next-heading">{% if reference_mode %}現在使っているファンは何台ですか？{% else %}{{ nav.next_question_ja }}{% endif %}</h2>
+      <p>{% if reference_mode %}分かれば上の参考値を実際の台数へ直し、「実際の台数として計算」を選んでください。現在の不足と、待つ場合の未カバー累計を更新します。{% else %}{{ nav.next_action_ja }}{% endif %}</p>
     </section>
 
     <section class="conditions" aria-labelledby="conditions-heading">

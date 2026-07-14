@@ -6,6 +6,8 @@ const comparisonDetail = document.querySelector('#comparison-selection-detail');
 const tabs = [...document.querySelectorAll('.plan-tab')];
 const pathCards = [...document.querySelectorAll('[data-path-card]')];
 const allCows = payload.cows_by_lane.flat();
+const referenceMode = payload.input_mode === 'guideline_reference';
+const baselineLabel = referenceMode ? '参考値' : '現在';
 const selectedState = {
   label: document.querySelector('[data-selected-label]'),
   additional: document.querySelector('[data-selected-additional]'),
@@ -67,7 +69,8 @@ function renderBarn(viewer, detail, plan) {
     detail.textContent = `牛 ${node.dataset.cow} ／ 第${node.dataset.lane}牛床列 ／ 房${node.dataset.stall}`;
   }));
   viewer.querySelectorAll('.fan').forEach((node) => node.addEventListener('click', () => {
-    detail.textContent = `ファン ${node.dataset.fan} ／ ${node.dataset.existing === 'true' ? '既存ファン' : '追加候補'}`;
+    const baselineFanLabel = referenceMode ? '参考配置' : '既存ファン';
+    detail.textContent = `ファン ${node.dataset.fan} ／ ${node.dataset.existing === 'true' ? baselineFanLabel : '追加候補'}`;
   }));
 }
 
@@ -82,8 +85,8 @@ function renderComparison() {
   selectedState.uncovered.textContent = `${allCows.length - plan.covered_cow_ids.length}頭`;
   selectedState.cumulative.textContent = `${pathway.cumulative_uncovered_cow_years}頭年`;
   selectedState.change.textContent = plan.newly_covered_cow_ids.length
-    ? `現在より ${plan.newly_covered_cow_ids.length}頭少なくなります。`
-    : '現在の状態を確認しています。';
+    ? `${baselineLabel}より ${plan.newly_covered_cow_ids.length}頭少なくなります。`
+    : `${referenceMode ? '参考状態' : '現在の状態'}を確認しています。`;
   pathCards.forEach((card) => card.classList.toggle('active', card.dataset.pathCard === selectedPlan));
 }
 
