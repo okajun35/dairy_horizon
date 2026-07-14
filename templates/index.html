@@ -8,8 +8,14 @@
 </head>
 <body>
   {% set nav = dashboard.navigation %}
+  {% set current = nav.current_state %}
   {% set current_plan = nav.plans[0] %}
-  {% set selected_plan = nav.plans[1] if nav.inputs.first_phase_fan_count is not none else current_plan %}
+  {% set pathway = dashboard.path_comparison %}
+  {% set current_path = pathway.paths[0] %}
+  {% set first_path = pathway.paths[1] %}
+  {% set full_path = pathway.paths[2] %}
+  {% set selected_plan = nav.plans[1] %}
+  {% set selected_path = first_path %}
   <main>
     <header class="intro">
       <p class="eyebrow">Dairy Horizon</p>
@@ -18,10 +24,12 @@
     </header>
 
     <form class="quick-inputs" method="get">
-      <label>地域 <input value="{{ nav.inputs.region_ja }}" disabled></label>
-      <label>搾乳牛頭数 <input name="lactating_cows" type="number" min="1" max="300" value="{{ nav.inputs.lactating_cows }}">頭</label>
-      <label>牛床列数 <select name="lane_count"><option value="1" {% if nav.inputs.lane_count == 1 %}selected{% endif %}>1列</option><option value="2" {% if nav.inputs.lane_count == 2 %}selected{% endif %}>2列</option></select></label>
-      <label>既存ファン数 <input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}">台</label>
+      <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
+      {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
+      <label class="input-field region-field"><span class="field-label">地域</span><span class="field-control"><input value="{{ nav.inputs.region_ja }}" disabled></span></label>
+      <label class="input-field"><span class="field-label">搾乳牛頭数</span><span class="field-control"><input name="lactating_cows" type="number" min="1" max="300" value="{{ nav.inputs.lactating_cows }}"><span class="unit">頭</span></span></label>
+      <label class="input-field"><span class="field-label">牛床列数</span><span class="field-control"><select name="lane_count">{% for lane in range(1, 7) %}<option value="{{ lane }}"{% if nav.inputs.lane_count == lane %} selected{% endif %}>{{ lane }}列</option>{% endfor %}</select></span></label>
+      <label class="input-field"><span class="field-label">既存ファン数</span><span class="field-control"><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}"><span class="unit">台</span></span></label>
       <button type="submit">牛舎を更新</button>
     </form>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
@@ -39,12 +47,13 @@
           <p class="section-kicker">現在の不足</p>
           <dl>
             <div><dt>搾乳牛</dt><dd>{{ nav.inputs.lactating_cows }}頭</dd></div>
-            <div><dt>必要目安</dt><dd>{{ nav.required_fan_count }}台</dd></div>
-            <div><dt>既存</dt><dd>{{ nav.inputs.existing_fan_count }}台</dd></div>
-            <div class="shortage"><dt>不足</dt><dd>{{ nav.shortage_fan_count }}台</dd></div>
-            <div><dt>未カバー推計</dt><dd>{{ nav.inputs.lactating_cows - current_plan.covered_cow_ids|length }}頭</dd></div>
+            <div><dt>頭数基準の台数目安</dt><dd>{{ current.guideline_fan_count }}台</dd></div>
+            <div><dt>既存</dt><dd>{{ current.existing_fan_count }}台</dd></div>
+            <div class="shortage"><dt>目安との差</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
+            <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
           </dl>
-          <p>列ごとの必要目安：{% for amount in nav.required_fans_by_lane %}{{ amount }}台{% if not loop.last %} ／ {% endif %}{% endfor %}</p>
+          <p>算出根拠：{{ nav.inputs.lactating_cows }}頭 ÷ {{ current.fan_capacity_cows_per_unit }}頭／台</p>
+          <p class="state-note">投資試算用の目安です。実際の必要台数は配置・性能・牛体付近風速で確認します。</p>
         </aside>
       </div>
 
@@ -61,8 +70,18 @@
             <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
             <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
             <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
+            <label>比較する実施年
+              <select name="investment_year">
+                {% for year in range(pathway.start_year, pathway.end_year + 1) %}
+                  <option value="{{ year }}"{% if year == first_path.investment_year %} selected{% endif %}>{{ year }}年</option>
+                {% endfor %}
+              </select>
+            </label>
             <label>第1期に追加する台数
-              <span><input name="first_phase_fan_count" type="number" min="0" max="{{ nav.shortage_fan_count }}" value="{{ nav.plans[1].additional_fan_count }}"> 台</span>
+              <span><input name="first_phase_fan_count" type="number" min="0" max="{{ nav.evaluation_additional_fan_count }}" value="{{ nav.plans[1].additional_fan_count }}"> 台</span>
+            </label>
+            <label>今回の計画総台数
+              <span><input name="planned_fan_count" type="number" min="{{ nav.inputs.existing_fan_count }}" value="{% if nav.planned_fan_count is not none %}{{ nav.planned_fan_count }}{% endif %}" placeholder="{{ current.guideline_fan_count }}"> 台</span>
             </label>
             <button type="submit">比較を更新</button>
           </form>
@@ -78,10 +97,42 @@
             <div><dt>稼働ファン</dt><dd data-selected-active>{{ selected_plan.active_fan_count }}台</dd></div>
             <div><dt>新たにカバー推計</dt><dd data-selected-newly>+{{ selected_plan.newly_covered_cow_ids|length }}頭</dd></div>
             <div><dt>未カバー推計</dt><dd data-selected-uncovered>{{ nav.inputs.lactating_cows - selected_plan.covered_cow_ids|length }}頭</dd></div>
+            <div><dt>5年間の未カバー累計</dt><dd data-selected-cumulative>{{ selected_path.cumulative_uncovered_cow_years }}頭年</dd></div>
           </dl>
           <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}現在より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}現在の状態を確認しています。{% endif %}</p>
         </aside>
       </div>
+    </section>
+
+    <section class="pathway pathway-comparison" aria-labelledby="pathway-heading">
+      <p class="section-kicker">年度別経路</p>
+      <h2 id="pathway-heading">{{ pathway.start_year }}〜{{ pathway.end_year }}年の5年間の経路比較</h2>
+      <p>実施年を変えたとき、風が届かないと推計される牛床が何年間残るかを比べます。</p>
+      <div class="pathway-grid">
+        {% for path in pathway.paths %}
+          <article class="path-card{% if path.key == 'first_phase' %} active{% endif %}" data-path-card="{{ path.key }}">
+            <p class="path-label">{{ path.label_ja }}</p>
+            <dl class="path-totals">
+              <div><dt>実施</dt><dd>{% if path.investment_year %}{{ path.investment_year }}年{% else %}追加なし{% endif %}</dd></div>
+              <div><dt>未カバー累計</dt><dd>{{ path.cumulative_uncovered_cow_years }}頭年</dd></div>
+            </dl>
+            <ol class="year-states">
+              {% for annual in path.years %}
+                <li{% if annual.investment_fan_count %} class="investment-year"{% endif %}>
+                  <span>{{ annual.year }}年</span>
+                  <strong>{{ annual.active_fan_count }}台</strong>
+                  <small>未カバー {{ annual.uncovered_cow_count }}頭</small>
+                  {% if annual.investment_fan_count %}<em>+{{ annual.investment_fan_count }}台</em>{% endif %}
+                </li>
+              {% endfor %}
+            </ol>
+            {% if path.review_year %}
+              <p class="review-note">{{ path.review_year }}年夏に見直す<br><small>牛体付近風速・風が届かない牛床・夏季乳量差を確認</small></p>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+      <p class="pathway-note">未カバー累計（頭年）は、各年の未カバー推計牛を合計した比較指標です。乳量損失や金額ではありません。実施年は推薦ではなく、違いを確かめるための比較条件です。</p>
     </section>
 
     <section class="next-step" aria-labelledby="next-heading">
@@ -109,7 +160,7 @@
           </article>
         {% endfor %}
       </div>
-      <p class="formula">必要台数は、列ごとに「搾乳牛頭数 ÷ 3頭／台」を切り上げて計算します。将来気候から投資年や必要台数は決めません。</p>
+      <p class="formula">頭数基準の台数目安は、全酪連資料の「3頭につき1台以上」を使い、「搾乳牛頭数 ÷ 3頭／台」を全体で切り上げて計算します。列数による自動補正や2列共用による半減は行いません。牛体付近2m/s以上は現地確認事項です。既存ファン位置とカバー牛床は均等配置による推計です。将来気候から投資年や台数は決めません。</p>
     </details>
   </main>
   <script id="barn-payload" type="application/json">{{ dashboard.viewer_payload|tojson }}</script>
