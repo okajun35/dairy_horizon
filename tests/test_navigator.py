@@ -4,11 +4,15 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from app.main import _dashboard, app
+from app.main import _dashboard, app, get_natural_input_interpreter
+from app.natural_input import NaturalInputCandidate, NaturalInputUnavailable
 from app.navigator import BarnInput, build_navigation, guideline_fan_count
 
 
 class NavigatorTest(unittest.TestCase):
+    def tearDown(self) -> None:
+        app.dependency_overrides.clear()
+
     def test_headcount_guideline_rounds_only_the_total_cow_count(self) -> None:
         cases = {1: 1, 3: 1, 4: 2, 30: 10, 60: 20, 61: 21}
 
@@ -131,6 +135,55 @@ class NavigatorTest(unittest.TestCase):
         self.assertIn("data-selected-cumulative", response.text)
         self.assertIn("将来気候から投資年や台数は決めません", response.text)
         self.assertNotIn("見積依頼文", response.text)
+
+    def test_natural_input_candidates_require_confirmation_before_calculation(self) -> None:
+        class FakeInterpreter:
+            def interpret(self, _text: str) -> NaturalInputCandidate:
+                return NaturalInputCandidate("十勝", 75, 3, 12, ())
+
+        app.dependency_overrides[get_natural_input_interpreter] = lambda: FakeInterpreter()
+
+        response = TestClient(app).post(
+            "/interpret",
+            data={"farm_description": "十勝で75頭、3列、ファン12台"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("AIが読み取った候補（未確認）", response.text)
+        self.assertIn('name="region_ja" value="十勝"', response.text)
+        self.assertIn('name="lactating_cows" type="number" min="1" max="300" value="75"', response.text)
+        self.assertIn('name="lane_count" type="number" min="1" max="6" value="3"', response.text)
+        self.assertIn('name="existing_fan_count" type="number" min="0" value="12"', response.text)
+        self.assertIn("確認して牛舎を計算", response.text)
+        self.assertIn("搾乳牛</dt><dd>60頭", response.text)
+        self.assertNotIn("搾乳牛</dt><dd>75頭", response.text)
+
+    def test_confirmed_candidates_reach_the_deterministic_calculation(self) -> None:
+        response = TestClient(app).get(
+            "/?region_ja=十勝&lactating_cows=75&lane_count=3&existing_fan_count=12"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("搾乳牛</dt><dd>75頭", response.text)
+        self.assertIn("頭数基準の台数目安</dt><dd>25台", response.text)
+        self.assertIn("目安との差</dt><dd>13台", response.text)
+
+    def test_natural_input_api_failure_keeps_manual_form_available(self) -> None:
+        class FailingInterpreter:
+            def interpret(self, _text: str) -> NaturalInputCandidate:
+                raise NaturalInputUnavailable("provider detail must not appear")
+
+        app.dependency_overrides[get_natural_input_interpreter] = lambda: FailingInterpreter()
+
+        response = TestClient(app).post(
+            "/interpret",
+            data={"farm_description": "千葉で60頭"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("自然文の読み取りを利用できませんでした。下の4項目を手入力してください。", response.text)
+        self.assertIn('name="lactating_cows"', response.text)
+        self.assertNotIn("provider detail must not appear", response.text)
 
     def test_changed_first_phase_opens_the_first_phase_view(self) -> None:
         response = TestClient(app).get("/?lactating_cows=60&lane_count=2&existing_fan_count=10&first_phase_fan_count=3")

@@ -3,22 +3,38 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Query, Request
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Form, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.navigator import BarnInput, CurrentBarnState, InputValidationError, build_navigation
+from app.natural_input import (
+    NaturalInputCandidate,
+    NaturalInputUnavailable,
+    OpenAINaturalInputInterpreter,
+)
 from app.pathways import build_path_comparison
 
 
 ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env")
 app = FastAPI(title="Dairy Horizon")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
+
+
+def get_natural_input_interpreter() -> OpenAINaturalInputInterpreter:
+    """Build the API adapter without exposing credentials to route or template code."""
+    return OpenAINaturalInputInterpreter(
+        os.getenv("OPENAI_API_KEY", ""),
+        os.getenv("OPENAI_MODEL", "gpt-5.6-luna"),
+    )
 
 
 def _optional_int(value: str | None, label_ja: str) -> int | None:
@@ -57,6 +73,7 @@ def _dashboard(
     first_phase_fan_count: int | None,
     investment_year: int,
     planned_fan_count: int | None = None,
+    region_ja: str = "千葉市",
 ) -> dict[str, Any]:
     inputs = BarnInput(
         lactating_cows=lactating_cows,
@@ -64,6 +81,7 @@ def _dashboard(
         existing_fan_count=existing_fan_count,
         first_phase_fan_count=first_phase_fan_count,
         planned_fan_count=planned_fan_count,
+        region_ja=region_ja,
     )
     navigation = build_navigation(inputs)
     path_comparison = build_path_comparison(inputs, investment_year=investment_year)
@@ -87,6 +105,7 @@ def index(
     first_phase_fan_count: int | None = Query(None, ge=0),
     investment_year: int = Query(2026, ge=2026, le=2030),
     planned_fan_count: str | None = Query(None),
+    region_ja: str = Query("千葉市"),
 ) -> HTMLResponse:
     try:
         parsed_planned_fan_count = _optional_int(planned_fan_count, "今回の計画総台数")
@@ -97,9 +116,46 @@ def index(
             first_phase_fan_count,
             investment_year,
             parsed_planned_fan_count,
+            region_ja,
         )
         error = None
     except InputValidationError as exc:
         dashboard = _dashboard(60, 2, 10, None, 2026, None)
         error = str(exc)
-    return templates.TemplateResponse(request=request, name="index.html", context={"dashboard": dashboard, "error": error})
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "dashboard": dashboard,
+            "error": error,
+            "candidate": None,
+            "natural_input_error": None,
+            "farm_description": "",
+        },
+    )
+
+
+@app.post("/interpret", response_class=HTMLResponse)
+def interpret_farm_description(
+    request: Request,
+    farm_description: str = Form(...),
+    interpreter: OpenAINaturalInputInterpreter = Depends(get_natural_input_interpreter),
+) -> HTMLResponse:
+    dashboard = _dashboard(60, 2, 10, None, 2026)
+    candidate: NaturalInputCandidate | None = None
+    natural_input_error: str | None = None
+    try:
+        candidate = interpreter.interpret(farm_description)
+    except NaturalInputUnavailable:
+        natural_input_error = "自然文の読み取りを利用できませんでした。下の4項目を手入力してください。"
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "dashboard": dashboard,
+            "error": None,
+            "candidate": candidate,
+            "natural_input_error": natural_input_error,
+            "farm_description": farm_description,
+        },
+    )

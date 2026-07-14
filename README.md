@@ -11,14 +11,17 @@ Python 3.12で実行します。
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
+cp -n .env.example .env
 python -m uvicorn app.main:app --reload
 ```
 
 ブラウザで `http://127.0.0.1:8000/` を開きます。初期表示は千葉市・60頭・2列・既存10台です。
+自然文入力を使う場合は、`.env` の `OPENAI_API_KEY` にプロジェクト用APIキーを設定します。`.env` はGit管理対象外です。
 
 ## 現在の範囲
 
 - 地域・頭数・1〜6列の牛床列数・既存ファン数から、頭数基準の台数目安と現在との差を表示
+- 自然文から4項目の候補を抽出し、利用者が確認した値だけを計算へ接続
 - 現在・第1期・全数整備を牛舎表示で切替
 - 未カバー推計牛と新たにカバーされる牛を確認
 - 次の現場確認事項を一つ提示
@@ -32,4 +35,13 @@ python -m uvicorn app.main:app --reload
 source .venv/bin/activate
 python -m unittest discover -s tests -v
 python -m compileall app tests
+```
+
+OpenAI APIを呼ぶ結合テストは既定でスキップします。明示的に実行する場合だけ、次を実行します。
+
+```bash
+set -a
+source .env
+set +a
+RUN_OPENAI_INTEGRATION_TESTS=1 python -m unittest tests.test_natural_input.OpenAINaturalInputLiveTest -v
 ```
