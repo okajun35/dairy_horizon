@@ -154,8 +154,9 @@
             <div><dt>稼働ファン</dt><dd data-selected-active>{{ selected_plan.active_fan_count }}台</dd></div>
             <div><dt>新たにカバー推計</dt><dd data-selected-newly>+{{ selected_plan.newly_covered_cow_ids|length }}頭</dd></div>
             <div><dt>未カバー推計</dt><dd data-selected-uncovered>{{ nav.inputs.lactating_cows - selected_plan.covered_cow_ids|length }}頭</dd></div>
-            <div><dt>{% if reference_mode %}同じ頭数・同じ台数を置いた場合の5年間{% else %}5年間の未カバー累計{% endif %}</dt><dd data-selected-cumulative>{{ selected_path.cumulative_uncovered_cow_years }}頭年</dd></div>
+            <div><dt>未カバー状態の延べ規模</dt><dd data-selected-cumulative class="{% if selected_path.cumulative_uncovered_cow_years %}cumulative-unresolved{% else %}cumulative-resolved{% endif %}">{% if selected_path.cumulative_uncovered_cow_years %}{{ selected_path.cumulative_uncovered_cow_years }}頭分・年{% else %}0 — 未カバーなし{% endif %}</dd></div>
           </dl>
+          <p data-selected-cumulative-note>{% if selected_path.cumulative_uncovered_cow_years == 0 %}{{ pathway.planning_horizon_years }}年間を通じて未カバー推計はありません。{% elif selected_path.cumulative_uncovered_cow_years == selected_path.years[0].uncovered_cow_count * pathway.planning_horizon_years %}{{ selected_path.years[0].uncovered_cow_count }}頭の未カバー推計が{{ pathway.planning_horizon_years }}年間残ります。{% else %}各年の未カバー推計を合計した延べ規模です。{% endif %}</p>
           <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}{% if reference_mode %}参考値{% else %}現在{% endif %}より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}{% if reference_mode %}参考状態{% else %}現在の状態{% endif %}を確認しています。{% endif %}</p>
           {% if reference_mode %}<p class="reference-limit-note">頭数・台数・3頭／台の基準を変えない比較です。将来の暑さに対する十分性は未評価です。</p>{% endif %}
         </aside>
@@ -224,7 +225,7 @@
             <p class="path-label">{{ path.label_ja }}</p>
             <dl class="path-totals">
               <div><dt>実施</dt><dd>{% if path.investment_year %}{{ path.investment_year }}年{% else %}追加なし{% endif %}</dd></div>
-              <div><dt>未カバー累計</dt><dd>{{ path.cumulative_uncovered_cow_years }}頭年</dd></div>
+              <div><dt>未カバー状態の延べ規模</dt><dd class="{% if path.cumulative_uncovered_cow_years %}cumulative-unresolved{% else %}cumulative-resolved{% endif %}">{% if path.cumulative_uncovered_cow_years %}{{ path.cumulative_uncovered_cow_years }}頭分・年{% else %}0 — 未カバーなし{% endif %}</dd></div>
             </dl>
             <ol class="year-states">
               {% for annual in path.years %}
@@ -242,14 +243,14 @@
           </article>
         {% endfor %}
       </div>
-      <p class="pathway-note">未カバー累計（頭年）は、各年の未カバー推計牛を合計した比較指標です。乳量損失や金額ではありません。実施年は推薦ではなく、違いを確かめるための比較条件です。</p>
+      <p class="pathway-note">未カバー状態の延べ規模（頭分・年）は、各年の未カバー推計頭数を合計した比較指標です。0より大きい場合は未カバー状態が残ることを示します。乳量損失や金額ではありません。</p>
     </section>
     {% endif %}
 
     <section class="next-step" aria-labelledby="next-heading">
       <p class="section-kicker">次の一手</p>
       <h2 id="next-heading">{% if reference_mode %}現在使っているファンは何台ですか？{% else %}{{ nav.next_question_ja }}{% endif %}</h2>
-      <p>{% if reference_mode %}分かれば上の参考値を実際の台数へ直し、「実際の台数として計算」を選んでください。現在の不足と、待つ場合の未カバー累計を更新します。{% else %}{{ nav.next_action_ja }}{% endif %}</p>
+      <p>{% if reference_mode %}分かれば上の参考値を実際の台数へ直し、「実際の台数として計算」を選んでください。現在の不足と、未カバー状態の延べ規模を更新します。{% else %}{{ nav.next_action_ja }}{% endif %}</p>
     </section>
 
     <section class="conditions" aria-labelledby="conditions-heading">

@@ -15,6 +15,7 @@ const selectedState = {
   newly: document.querySelector('[data-selected-newly]'),
   uncovered: document.querySelector('[data-selected-uncovered]'),
   cumulative: document.querySelector('[data-selected-cumulative]'),
+  cumulativeNote: document.querySelector('[data-selected-cumulative-note]'),
   change: document.querySelector('[data-selected-change]'),
 };
 
@@ -22,6 +23,17 @@ let selectedPlan = payload.selected_plan || 'current';
 
 function planFor(key) { return payload.plans.find((plan) => plan.key === key); }
 function pathwayFor(key) { return payload.path_comparison.paths.find((path) => path.key === key); }
+
+function cumulativeNote(pathway) {
+  const counts = pathway.years.map((year) => year.uncovered_cow_count);
+  if (pathway.cumulative_uncovered_cow_years === 0) {
+    return `${counts.length}年間を通じて未カバー推計はありません。`;
+  }
+  if (counts.every((count) => count === counts[0])) {
+    return `${counts[0]}頭の未カバー推計が${counts.length}年間残ります。`;
+  }
+  return '各年の未カバー推計を合計した延べ規模です。';
+}
 
 function allocateFans(totalFans) {
   const laneCount = payload.cows_by_lane.length;
@@ -83,7 +95,12 @@ function renderComparison() {
   selectedState.active.textContent = `${plan.active_fan_count}台`;
   selectedState.newly.textContent = `+${plan.newly_covered_cow_ids.length}頭`;
   selectedState.uncovered.textContent = `${allCows.length - plan.covered_cow_ids.length}頭`;
-  selectedState.cumulative.textContent = `${pathway.cumulative_uncovered_cow_years}頭年`;
+  const unresolved = pathway.cumulative_uncovered_cow_years > 0;
+  selectedState.cumulative.textContent = unresolved
+    ? `${pathway.cumulative_uncovered_cow_years}頭分・年`
+    : '0 — 未カバーなし';
+  selectedState.cumulative.className = unresolved ? 'cumulative-unresolved' : 'cumulative-resolved';
+  selectedState.cumulativeNote.textContent = cumulativeNote(pathway);
   selectedState.change.textContent = plan.newly_covered_cow_ids.length
     ? `${baselineLabel}より ${plan.newly_covered_cow_ids.length}頭少なくなります。`
     : `${referenceMode ? '参考状態' : '現在の状態'}を確認しています。`;

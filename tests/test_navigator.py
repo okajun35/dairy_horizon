@@ -145,8 +145,13 @@ class NavigatorTest(unittest.TestCase):
         self.assertIn('name="investment_year"', response.text)
         self.assertIn('<option value="6">6列</option>', response.text)
         self.assertIn("5年間の経路比較", response.text)
-        self.assertIn("未カバー累計", response.text)
-        self.assertIn("75頭年", response.text)
+        self.assertIn("未カバー状態の延べ規模", response.text)
+        self.assertIn(
+            'data-selected-cumulative class="cumulative-unresolved">75頭分・年',
+            response.text,
+        )
+        self.assertIn("15頭の未カバー推計が5年間残ります", response.text)
+        self.assertIn('class="cumulative-resolved">0 — 未カバーなし', response.text)
         self.assertIn("2027年夏に見直す", response.text)
         self.assertIn("data-selected-cumulative", response.text)
         self.assertIn("将来気候から投資年や台数は決めません", response.text)
@@ -218,8 +223,8 @@ class NavigatorTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('<option value="2028" selected>2028年</option>', response.text)
-        self.assertIn("105頭年", response.text)
-        self.assertIn("60頭年", response.text)
+        self.assertIn("105頭分・年", response.text)
+        self.assertIn("60頭分・年", response.text)
         self.assertIn("2029年夏に見直す", response.text)
 
     def test_invalid_barn_input_fallback_still_renders_pathway(self) -> None:
@@ -228,7 +233,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("牛床列数は1〜6列で入力してください。", response.text)
         self.assertIn("2026〜2030年の5年間の経路比較", response.text)
-        self.assertIn("75頭年", response.text)
+        self.assertIn("75頭分・年", response.text)
 
 
 if __name__ == "__main__":

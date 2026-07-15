@@ -92,6 +92,8 @@ async function comparisonState(evaluate) {
     newly: document.querySelector('[data-selected-newly]').textContent.trim(),
     uncovered: document.querySelector('[data-selected-uncovered]').textContent.trim(),
     cumulative: document.querySelector('[data-selected-cumulative]').textContent.trim(),
+    cumulativeClass: document.querySelector('[data-selected-cumulative]').className,
+    cumulativeNote: document.querySelector('[data-selected-cumulative-note]').textContent.trim(),
   })`);
 }
 
@@ -134,7 +136,9 @@ async function main() {
         active: '15台',
         newly: '+15頭',
         uncovered: '15頭',
-        cumulative: '75頭年',
+        cumulative: '75頭分・年',
+        cumulativeClass: 'cumulative-unresolved',
+        cumulativeNote: '15頭の未カバー推計が5年間残ります。',
       }),
       '初期の第1期',
     );
@@ -158,7 +162,9 @@ async function main() {
         active: '20台',
         newly: '+30頭',
         uncovered: '0頭',
-        cumulative: '0頭年',
+        cumulative: '0 — 未カバーなし',
+        cumulativeClass: 'cumulative-resolved',
+        cumulativeNote: '5年間を通じて未カバー推計はありません。',
       }),
       '頭数目安タブ',
     );
@@ -178,7 +184,9 @@ async function main() {
         active: '13台',
         newly: '+9頭',
         uncovered: '21頭',
-        cumulative: '123頭年',
+        cumulative: '123頭分・年',
+        cumulativeClass: 'cumulative-unresolved',
+        cumulativeNote: '各年の未カバー推計を合計した延べ規模です。',
       }),
       '入力変更後の第1期',
     );
@@ -197,7 +205,9 @@ async function main() {
         active: '18台',
         newly: '+24頭',
         uncovered: '6頭',
-        cumulative: '78頭年',
+        cumulative: '78頭分・年',
+        cumulativeClass: 'cumulative-unresolved',
+        cumulativeNote: '各年の未カバー推計を合計した延べ規模です。',
       }),
       '入力変更後の全数案',
     );
@@ -219,7 +229,9 @@ async function main() {
         active: '34台',
         newly: '+40頭',
         uncovered: '0頭',
-        cumulative: '0頭年',
+        cumulative: '0 — 未カバーなし',
+        cumulativeClass: 'cumulative-resolved',
+        cumulativeNote: '5年間を通じて未カバー推計はありません。',
       }),
       '参考状態の全数案',
     );
