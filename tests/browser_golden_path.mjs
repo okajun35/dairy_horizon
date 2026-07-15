@@ -104,6 +104,22 @@ async function main() {
     await waitForPage(evaluate);
 
     assertEqual(
+      await evaluate(`JSON.stringify({
+        value: document.querySelector('.quick-inputs .region-field input:disabled').value,
+        disabled: document.querySelector('.quick-inputs .region-field input:disabled').disabled,
+        submittedValue: document.querySelector('.quick-inputs [name="region_ja"]').value,
+        note: document.querySelector('#region-availability-note').textContent.trim(),
+      })`),
+      JSON.stringify({
+        value: '千葉市',
+        disabled: true,
+        submittedValue: '千葉市',
+        note: '現在利用できる気温データは千葉市のみです。ほかの地域は今後拡張予定です。',
+      }),
+      '地域の固定表示',
+    );
+
+    assertEqual(
       await comparisonState(evaluate),
       JSON.stringify({
         label: '第1期：小さく始める',

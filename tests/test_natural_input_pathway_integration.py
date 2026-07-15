@@ -63,7 +63,7 @@ class NaturalInputPathwayIntegrationTest(unittest.TestCase):
         paths = _paths_by_key(confirmed_payload)
 
         self.assertEqual(unconfirmed_payload["inputs"]["lactating_cows"], 60)
-        self.assertEqual(confirmed_payload["inputs"]["region_ja"], "十勝")
+        self.assertEqual(confirmed_payload["inputs"]["region_ja"], "千葉市")
         self.assertEqual(confirmed_payload["inputs"]["lactating_cows"], 75)
         self.assertEqual(confirmed_payload["guideline_fan_count"], 25)
         self.assertEqual(confirmed_payload["guideline_gap_fan_count"], 13)
@@ -105,7 +105,8 @@ class NaturalInputPathwayIntegrationTest(unittest.TestCase):
         self.assertEqual(first_phase["review_year"], 2029)
         self.assertEqual([year["uncovered_cow_count"] for year in full_coverage["years"]], [39, 39, 0, 0, 0])
         self.assertEqual(full_coverage["cumulative_uncovered_cow_years"], 78)
-        self.assertIn('name="region_ja" type="hidden" value="十勝"', response.text)
+        self.assertIn('name="region_ja" type="hidden" value="千葉市"', response.text)
+        self.assertNotIn('value="十勝"', response.text)
 
     def test_confirmed_no_shortage_input_has_no_investment_event_or_false_pending_state(self) -> None:
         response = TestClient(app).get(

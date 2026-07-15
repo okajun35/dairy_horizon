@@ -34,6 +34,7 @@ load_dotenv(ROOT / ".env")
 app = FastAPI(title="Dairy Horizon")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
+SUPPORTED_REGION_JA = "千葉市"
 
 
 def get_natural_input_interpreter() -> OpenAINaturalInputInterpreter:
@@ -114,7 +115,7 @@ def _dashboard(
     first_phase_fan_count: int | None,
     investment_year: int,
     planned_fan_count: int | None = None,
-    region_ja: str = "千葉市",
+    region_ja: str = SUPPORTED_REGION_JA,
     reference_mode: bool = False,
 ) -> dict[str, Any]:
     inputs = BarnInput(
@@ -146,7 +147,7 @@ def _dashboard(
 
 
 def _candidate_view(candidate: NaturalInputCandidate) -> dict[str, Any]:
-    region_defaulted = candidate.region_ja is None
+    region_unsupported = candidate.region_ja not in (None, SUPPORTED_REGION_JA)
     missing_labels = {
         "lactating_cows": "搾乳牛頭数",
         "lane_count": "牛床列数",
@@ -161,8 +162,12 @@ def _candidate_view(candidate: NaturalInputCandidate) -> dict[str, Any]:
         and candidate.existing_fan_count is None
     )
     return {
-        "region_ja": candidate.region_ja or "千葉市",
-        "region_defaulted": region_defaulted,
+        "region_ja": SUPPORTED_REGION_JA,
+        "region_note": (
+            f"入力された地域は現在未対応のため、{SUPPORTED_REGION_JA}を使用"
+            if region_unsupported
+            else "現在の対応地域として設定（千葉市のみ）"
+        ),
         "lactating_cows": candidate.lactating_cows,
         "lane_count": candidate.lane_count,
         "existing_fan_count": candidate.existing_fan_count,
@@ -185,10 +190,11 @@ def index(
     first_phase_fan_count: int | None = Query(None, ge=0),
     investment_year: int = Query(2026, ge=2026, le=2030),
     planned_fan_count: str | None = Query(None),
-    region_ja: str = Query("千葉市"),
+    region_ja: str = Query(SUPPORTED_REGION_JA),
     reference_mode: bool = Query(False),
 ) -> HTMLResponse:
     try:
+        region_ja = SUPPORTED_REGION_JA
         parsed_planned_fan_count = _optional_int(planned_fan_count, "今回の計画総台数")
         dashboard = _dashboard(
             lactating_cows,

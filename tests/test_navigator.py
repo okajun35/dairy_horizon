@@ -112,6 +112,18 @@ class NavigatorTest(unittest.TestCase):
     def test_screen_contains_barn_and_evidence(self) -> None:
         response = TestClient(app).get("/")
         self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            '<input value="千葉市" disabled aria-describedby="region-availability-note">',
+            response.text,
+        )
+        self.assertIn(
+            '<input name="region_ja" type="hidden" value="千葉市">',
+            response.text,
+        )
+        self.assertIn(
+            "現在利用できる気温データは千葉市のみです。ほかの地域は今後拡張予定です。",
+            response.text,
+        )
         self.assertIn('id="current-barn-viewer"', response.text)
         self.assertIn('id="comparison-barn-viewer"', response.text)
         self.assertIn("現在の牛舎", response.text)
@@ -154,7 +166,10 @@ class NavigatorTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("AIが読み取った候補（未確認）", response.text)
-        self.assertIn('name="region_ja" value="十勝"', response.text)
+        self.assertIn('value="千葉市" disabled aria-describedby="candidate-region-availability-note"', response.text)
+        self.assertIn('name="region_ja" type="hidden" value="千葉市"', response.text)
+        self.assertIn("入力された地域は現在未対応のため、千葉市を使用", response.text)
+        self.assertNotIn('value="十勝"', response.text)
         self.assertIn('name="lactating_cows" type="number" min="1" max="300" value="75"', response.text)
         self.assertIn('name="lane_count" type="number" min="1" max="6" value="3"', response.text)
         self.assertIn('name="existing_fan_count" type="number" min="0" value="12"', response.text)
@@ -168,6 +183,9 @@ class NavigatorTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(_dashboard(75, 3, 12, None, 2026)["navigation"].inputs.region_ja, "千葉市")
+        self.assertIn('name="region_ja" type="hidden" value="千葉市"', response.text)
+        self.assertNotIn('value="十勝"', response.text)
         self.assertIn("搾乳牛</dt><dd>75頭", response.text)
         self.assertIn("頭数基準の台数目安</dt><dd>25台", response.text)
         self.assertIn("目安との差</dt><dd>13台", response.text)

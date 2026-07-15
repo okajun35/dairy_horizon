@@ -39,7 +39,7 @@
           <h3>AIが読み取った候補（未確認）</h3>
           <p>読み取れた値と標準設定を確認できます。不明な値を現在値としては扱いません。</p>
           <form class="candidate-fields" method="get" action="/">
-            <label>地域<input name="region_ja" value="{{ candidate.region_ja }}" required><small>{% if candidate.region_defaulted %}現在の対応地域として設定{% else %}入力から読み取り{% endif %}</small></label>
+            <label>地域<input value="{{ candidate.region_ja }}" disabled aria-describedby="candidate-region-availability-note"><input name="region_ja" type="hidden" value="{{ candidate.region_ja }}"><small id="candidate-region-availability-note">{{ candidate.region_note }}</small></label>
             <label>搾乳牛頭数<input name="lactating_cows" type="number" min="1" max="300" value="{{ candidate.lactating_cows or '' }}" required><small>{% if candidate.lactating_cows is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
             <label>牛床列数<input name="lane_count" type="number" min="1" max="6" value="{{ candidate.lane_count or '' }}" required><small>{% if candidate.lane_count is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
             <label>既存ファン数<input name="existing_fan_count" type="number" min="0" value="{% if candidate.existing_fan_count is not none %}{{ candidate.existing_fan_count }}{% endif %}" required><small>{% if candidate.existing_fan_count is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
@@ -67,7 +67,7 @@
     <form class="quick-inputs" method="get">
       <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
       {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
-      <label class="input-field region-field"><span class="field-label">地域</span><span class="field-control"><input name="region_ja" value="{{ nav.inputs.region_ja }}" required></span></label>
+      <label class="input-field region-field"><span class="field-label">地域</span><span class="field-control"><input value="{{ nav.inputs.region_ja }}" disabled aria-describedby="region-availability-note"><input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}"></span><small id="region-availability-note" class="availability-note">現在利用できる気温データは千葉市のみです。ほかの地域は今後拡張予定です。</small></label>
       <label class="input-field"><span class="field-label">搾乳牛頭数</span><span class="field-control"><input name="lactating_cows" type="number" min="1" max="300" value="{{ nav.inputs.lactating_cows }}"><span class="unit">頭</span></span></label>
       <label class="input-field"><span class="field-label">牛床列数</span><span class="field-control"><select name="lane_count">{% for lane in range(1, 7) %}<option value="{{ lane }}"{% if nav.inputs.lane_count == lane %} selected{% endif %}>{{ lane }}列</option>{% endfor %}</select></span></label>
       <label class="input-field"><span class="field-label">既存ファン数{% if reference_mode %}（参考値）{% endif %}</span><span class="field-control"><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}"><span class="unit">台</span></span></label>

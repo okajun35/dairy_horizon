@@ -45,7 +45,8 @@ class ReferenceInputTest(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('name="region_ja" value="千葉市"', response.text)
+        self.assertIn('value="千葉市" disabled aria-describedby="candidate-region-availability-note"', response.text)
+        self.assertIn('name="region_ja" type="hidden" value="千葉市"', response.text)
         self.assertIn("現在の対応地域として設定", response.text)
         self.assertIn('name="lactating_cows" type="number" min="1" max="300" value="100"', response.text)
         self.assertIn('name="lane_count" type="number" min="1" max="6" value="4"', response.text)
