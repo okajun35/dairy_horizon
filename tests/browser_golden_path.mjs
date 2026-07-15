@@ -106,6 +106,19 @@ async function financialState(evaluate, planKey) {
   ))`);
 }
 
+async function climateState(evaluate, periodKey, planIndex = 0) {
+  return evaluate(`JSON.stringify((() => {
+    const card = document.querySelector('[data-climate-period="${periodKey}"]');
+    const plan = card.querySelectorAll('.climate-plan-costs li')[${planIndex}];
+    return {
+      days: Array.from(card.querySelectorAll('dd'), (item) => item.textContent.trim()),
+      plan: plan.querySelector('strong').textContent.trim(),
+      medianCost: plan.querySelector('span').textContent.trim(),
+      costRange: plan.querySelector('small').textContent.trim(),
+    };
+  })())`);
+}
+
 async function main() {
   const client = await openClient();
   const { socket, send, evaluate } = client;
@@ -156,6 +169,21 @@ async function main() {
       JSON.stringify(['10台', '30頭', '2,200,000円', '295,680円／年', '3.14kg／頭・日']),
       '初期の頭数目安財務',
     );
+    assertEqual(
+      await climateState(evaluate, '2026_2030'),
+      JSON.stringify({
+        days: ['96日／年', '82〜103日／年'],
+        plan: '第1期：小さく始める（5台追加）',
+        medianCost: '中央値 124,706円／年',
+        costRange: '範囲 110,515円〜130,927円／年',
+      }),
+      '初期のTHI背景と第1期電力費',
+    );
+    assertEqual(
+      await evaluate(`document.querySelector('.result-explanation button').textContent.trim()`),
+      'AIで結果を読み解く',
+      '説明生成は利用者操作で開始',
+    );
 
     await evaluate(`document.querySelector('[data-plan="full_coverage"]').click()`);
     assertEqual(
@@ -202,6 +230,16 @@ async function main() {
       await financialState(evaluate, 'first_phase'),
       JSON.stringify(['3台', '9頭', '660,000円', '88,704円／年', '3.14kg／頭・日']),
       '入力変更後の第1期財務',
+    );
+    assertEqual(
+      await climateState(evaluate, '2026_2030'),
+      JSON.stringify({
+        days: ['96日／年', '82〜103日／年'],
+        plan: '第1期：小さく始める（3台追加）',
+        medianCost: '中央値 74,824円／年',
+        costRange: '範囲 66,309円〜78,556円／年',
+      }),
+      '入力変更後のTHI背景と第1期電力費',
     );
 
     await evaluate(`document.querySelector('[data-plan="full_coverage"]').click()`);
