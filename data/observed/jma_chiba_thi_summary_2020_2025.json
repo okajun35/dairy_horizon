@@ -1,0 +1,116 @@
+{
+  "profile_id": "jma_chiba_2020_2025_daily_observations",
+  "region_id": "chiba_city",
+  "region_name_ja": "千葉市",
+  "station_name_ja": "千葉",
+  "station_number": "47682",
+  "classification": "official_observation",
+  "period_role": "recent_observed_baseline",
+  "period": {
+    "start_year": 2020,
+    "end_year": 2025
+  },
+  "thi_definition": {
+    "formula": "NRC daily-mean screening THI",
+    "threshold": 72,
+    "temperature_source": "JMA daily mean temperature",
+    "humidity_source": "JMA daily mean relative humidity"
+  },
+  "missing_value_rule": "Missing THI days are retained as lower and upper bounds; they are not counted as non-heat days.",
+  "annual": {
+    "2020": {
+      "expected_days": 366,
+      "observed_days": 366,
+      "valid_thi_days": 366,
+      "completeness_pct": 100.0,
+      "missing_observation_dates": [],
+      "missing_thi_dates": [],
+      "thi_days_daily_mean_ge_72": {
+        "lower_bound": 88,
+        "upper_bound": 88
+      },
+      "status": "complete"
+    },
+    "2021": {
+      "expected_days": 365,
+      "observed_days": 365,
+      "valid_thi_days": 365,
+      "completeness_pct": 100.0,
+      "missing_observation_dates": [],
+      "missing_thi_dates": [],
+      "thi_days_daily_mean_ge_72": {
+        "lower_bound": 73,
+        "upper_bound": 73
+      },
+      "status": "complete"
+    },
+    "2022": {
+      "expected_days": 365,
+      "observed_days": 365,
+      "valid_thi_days": 362,
+      "completeness_pct": 99.178,
+      "missing_observation_dates": [],
+      "missing_thi_dates": [
+        "2022-09-19",
+        "2022-09-20",
+        "2022-09-21"
+      ],
+      "thi_days_daily_mean_ge_72": {
+        "lower_bound": 94,
+        "upper_bound": 97
+      },
+      "status": "missing_values"
+    },
+    "2023": {
+      "expected_days": 365,
+      "observed_days": 365,
+      "valid_thi_days": 365,
+      "completeness_pct": 100.0,
+      "missing_observation_dates": [],
+      "missing_thi_dates": [],
+      "thi_days_daily_mean_ge_72": {
+        "lower_bound": 104,
+        "upper_bound": 104
+      },
+      "status": "complete"
+    },
+    "2024": {
+      "expected_days": 366,
+      "observed_days": 366,
+      "valid_thi_days": 366,
+      "completeness_pct": 100.0,
+      "missing_observation_dates": [],
+      "missing_thi_dates": [],
+      "thi_days_daily_mean_ge_72": {
+        "lower_bound": 113,
+        "upper_bound": 113
+      },
+      "status": "complete"
+    },
+    "2025": {
+      "expected_days": 365,
+      "observed_days": 365,
+      "valid_thi_days": 365,
+      "completeness_pct": 100.0,
+      "missing_observation_dates": [],
+      "missing_thi_dates": [],
+      "thi_days_daily_mean_ge_72": {
+        "lower_bound": 110,
+        "upper_bound": 110
+      },
+      "status": "complete"
+    }
+  },
+  "period_summary": {
+    "annual_mean_thi_days_lower_bound": 97.0,
+    "annual_mean_thi_days_upper_bound": 97.5,
+    "complete_years": 5,
+    "year_count": 6
+  },
+  "source": {
+    "publisher": "気象庁",
+    "dataset": "過去の気象データ検索 日ごとの値 詳細",
+    "provenance_kind": "official_observation",
+    "base_url": "https://www.data.jma.go.jp/stats/etrn/view/daily_s1.php"
+  }
+}

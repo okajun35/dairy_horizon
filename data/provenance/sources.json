@@ -1,6 +1,6 @@
 {
   "dataset_id": "dairy_horizon_chiba_sources_v1",
-  "generated_at": "2026-07-11",
+  "generated_at": "2026-07-16",
   "sources": [
     {
       "id": "jma_chiba_2024_aug_daily",
@@ -17,6 +17,18 @@
       "kind": "official_observation"
     },
     {
+      "id": "jma_chiba_2020_2025_daily",
+      "publisher": "気象庁",
+      "title": "千葉（観測点番号47682）2020〜2025年 日ごとの値",
+      "url": "https://www.data.jma.go.jp/stats/etrn/view/daily_s1.php?prec_no=45&block_no=47682&year=2025&month=12&day=&view=a2",
+      "kind": "official_observation",
+      "generated_files": [
+        "data/observed/jma_chiba_daily_2020_2025.csv",
+        "data/observed/jma_chiba_thi_summary_2020_2025.json"
+      ],
+      "missing_value_note": "2022-09-19〜2022-09-21は湿度欠測。THI対象日数は下限・上限で保持する。"
+    },
+    {
       "id": "jma_climate_change_2025",
       "publisher": "気象庁",
       "title": "日本の気候変動2025 第4章",
@@ -29,7 +41,9 @@
       "title": "Climate API documentation",
       "url": "https://open-meteo.com/en/docs/climate-api",
       "kind": "processed_cmip6_api",
-      "license_note": "Open-MeteoおよびCMIP6への帰属表示が必要。"
+      "license_note": "Open-MeteoおよびCMIP6への帰属表示が必要。",
+      "generated_baseline_file": "data/climate_profiles/generated/chiba_city_2020_2025.json",
+      "baseline_note": "過去年も観測値ではなくモデル検証期間。同一モデルごとの将来変化量計算に使用する。"
     },
     {
       "id": "maff_milk_production_cost_2024",

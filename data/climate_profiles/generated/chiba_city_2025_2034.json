@@ -24,7 +24,7 @@
   "source": {
     "provider": "Open-Meteo Climate API",
     "dataset": "CMIP6 climate model projections",
-    "provenance_kind": "official_projection_report"
+    "provenance_kind": "processed_cmip6_api"
   },
   "retrievals": [
     {

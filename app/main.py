@@ -499,7 +499,7 @@ def _evidence(
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
         {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
     ) + comparison_rows + (
-        {"item": "将来気候", "value": "2026〜2034年を期間集計して表示", "kind": "official_projection_report", "source": "Open-Meteo Climate API・CMIP6複数モデルの保存済みプロファイル", "note": "日平均THI 72以上の日数をモデル間の中央値と範囲で示します。ファン台数・投資時期には使いません。"},
+        {"item": "将来気候", "value": "2026〜2034年を期間集計して表示", "kind": "processed_cmip6_api", "source": "Open-Meteo Climate API・CMIP6複数モデルの保存済みプロファイル", "note": "日平均THI 72以上の日数をモデル間の中央値と範囲で示します。ファン台数・投資時期には使いません。"},
     )
 
 
