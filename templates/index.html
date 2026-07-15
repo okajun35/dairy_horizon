@@ -159,9 +159,37 @@
           </dl>
           <p data-selected-cumulative-note>{% if selected_path.cumulative_uncovered_cow_years == 0 %}{{ pathway.planning_horizon_years }}年間を通じて未カバー推計はありません。{% elif selected_path.cumulative_uncovered_cow_years == selected_path.years[0].uncovered_cow_count * pathway.planning_horizon_years %}{{ selected_path.years[0].uncovered_cow_count }}頭の未カバー推計が{{ pathway.planning_horizon_years }}年間残ります。{% else %}各年の未カバー推計を合計した延べ規模です。{% endif %}</p>
           <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}{% if reference_mode %}参考値{% else %}現在{% endif %}より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}{% if reference_mode %}参考状態{% else %}現在の状態{% endif %}を確認しています。{% endif %}</p>
-          {% if reference_mode %}<p class="reference-limit-note">頭数・台数・3頭／台の基準を変えない比較です。将来の暑さに対する十分性は未評価です。</p>{% endif %}
+          {% if reference_mode %}<p class="reference-limit-note">頭数・台数・3頭／台の基準を変えない比較です。将来の暑熱期間は、下の背景情報で運転日数と電力費へ分けて確認します。</p>{% endif %}
         </aside>
       </div>
+    </section>
+
+    <section class="climate-background" aria-labelledby="climate-heading">
+      <p class="section-kicker">暑熱期間の背景</p>
+      <h2 id="climate-heading">将来の暑熱期間は、運転日数と電力費の背景です</h2>
+      <p class="climate-intro">{{ dashboard.climate_background.region_name_ja }}の保存済みCMIP6複数モデルから、日平均THI {{ dashboard.climate_background.thi_threshold|int }}以上の日数を期間平均しました。特定年の確定予報ではありません。この情報からファン台数や投資年は変更しません。</p>
+      <div class="climate-period-grid">
+        {% for period in dashboard.climate_background.periods %}
+          <article class="climate-period-card" data-climate-period="{{ period.key }}">
+            <h3>{{ period.start_year }}〜{{ period.end_year }}年</h3>
+            <dl>
+              <div><dt>暑熱対策の対象日</dt><dd>{{ period.median_annual_days_ja }}</dd></div>
+              <div><dt>モデル範囲</dt><dd>{{ period.annual_days_range_ja }}</dd></div>
+            </dl>
+            <p>{{ period.model_count }}モデルそれぞれの期間内年平均を比較</p>
+            <details>
+              <summary><strong>この日数で年間電力費を見る</strong></summary>
+              <p>1対象日あたり{{ dashboard.climate_background.operating_hours_per_day|int }}時間、電力量単価・基本料金・インバーター削減率は標準仮定を使用しています。</p>
+              <ul class="climate-plan-costs">
+                {% for plan in period.plans %}
+                  <li><strong>{{ plan.label_ja }}（{{ plan.additional_fan_count }}台追加）</strong><span>中央値 {{ plan.annual_electricity_median_ja }}／年</span><small>範囲 {{ plan.annual_electricity_range_ja }}／年</small></li>
+                {% endfor %}
+              </ul>
+            </details>
+          </article>
+        {% endfor %}
+      </div>
+      <p class="climate-boundary-note">2035年以降は未取得です。日単位データのため、1対象日あたり24時間は全酪連標準例による運転時間仮定であり、時間別の暑さを予測した値ではありません。</p>
     </section>
 
     <section class="financial-comparison" aria-labelledby="financial-heading">
@@ -213,7 +241,7 @@
     <section class="pathway reference-pathway" aria-labelledby="pathway-heading">
       <p class="section-kicker">年度別経路</p>
       <h2 id="pathway-heading">参考状態では、{{ current.existing_fan_count }}台で不足を評価しています</h2>
-      <p>上の参考値を増減し、比較後の牛舎で追加案を確認できます。画面の5年間は、頭数・ファン台数・3頭／台の基準が変わらない場合の設備状態です。保存済みの将来THIデータはまだ画面へ接続しておらず、将来の暑さに対する十分性は未評価です。</p>
+      <p>上の参考値を増減し、比較後の牛舎で追加案を確認できます。画面の5年間は、頭数・ファン台数・3頭／台の基準が変わらない場合の設備状態です。将来の暑熱期間はファン台数を変えず、運転日数と電力費の背景として別に表示します。</p>
     </section>
     {% else %}
     <section class="pathway pathway-comparison" aria-labelledby="pathway-heading">

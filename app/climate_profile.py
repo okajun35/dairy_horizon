@@ -34,6 +34,16 @@ class ClimatePeriodSummary:
     source_dataset: str
 
 
+@dataclass(frozen=True)
+class ClimateOperatingHours:
+    """Annual operating-hour distribution using an explicit daily assumption."""
+
+    hours_per_target_day: Decimal
+    median_annual_hours: Decimal
+    minimum_annual_hours: Decimal
+    maximum_annual_hours: Decimal
+
+
 def load_climate_profile(path: Path) -> Mapping[str, Any]:
     """Load one pre-generated profile without making an external request."""
 
@@ -143,4 +153,25 @@ def summarize_thi_days(
         model_annual_days=annual_days_by_model,
         source_provider=str(source.get("provider", "")),
         source_dataset=str(source.get("dataset", "")),
+    )
+
+
+def calculate_operating_hours(
+    summary: ClimatePeriodSummary,
+    hours_per_target_day: Decimal,
+) -> ClimateOperatingHours:
+    """Convert THI target days to hours without inferring hourly weather."""
+
+    if (
+        not hours_per_target_day.is_finite()
+        or not Decimal("0") <= hours_per_target_day <= Decimal("24")
+    ):
+        raise ClimateProfileError(
+            "1対象日あたりの運転時間は0〜24時間で指定してください。"
+        )
+    return ClimateOperatingHours(
+        hours_per_target_day=hours_per_target_day,
+        median_annual_hours=summary.median_annual_days * hours_per_target_day,
+        minimum_annual_hours=summary.minimum_annual_days * hours_per_target_day,
+        maximum_annual_hours=summary.maximum_annual_days * hours_per_target_day,
     )

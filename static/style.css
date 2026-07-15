@@ -35,6 +35,21 @@ label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, s
 .barn-viewer { min-height: 320px; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #e6eee7, #f7f6ed); } .barn-viewer svg { display:block; width:100%; height:320px; } .barn-viewer .cow, .barn-viewer .fan { cursor:pointer; } .barn-viewer .cow:hover, .barn-viewer .fan:hover { filter: brightness(.78); }
 .comparison-time-note { margin:-4px 0 14px; color:#52675b; font-size:.84rem; }
 .legend { display: flex; flex-wrap:wrap; gap: 8px; align-items:center; margin: 12px 0 6px; font-size:.84rem; } .legend span { display:inline-block; width:12px; height:12px; border-radius:50%; margin-left:8px; } .covered { background:#356d8f; } .newly-covered { background:#329265; } .uncovered { background:#d17b32; } .selection-detail { min-height: 1.4em; margin-bottom: 0; font-size:.88rem; color:#456053; }
+.climate-background { margin-top:24px; padding:24px; border:1px solid #cad7db; border-radius:14px; background:#f5fafb; }
+.climate-intro, .climate-boundary-note { max-width:900px; color:#49616a; }
+.climate-period-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; }
+.climate-period-card { padding:18px; border:1px solid #cad9dc; border-radius:12px; background:#fff; }
+.climate-period-card h3 { margin:0 0 12px; font-size:1.05rem; }
+.climate-period-card dl { margin:0; }
+.climate-period-card dl div { display:flex; justify-content:space-between; gap:16px; padding:9px 0; border-bottom:1px solid #dce5e6; }
+.climate-period-card dd { color:#356d8f; font-size:1.03rem; text-align:right; }
+.climate-period-card > p, .climate-period-card details p { margin:10px 0 0; color:#596d73; font-size:.82rem; }
+.climate-period-card details { margin-top:14px; padding-top:12px; border-top:1px solid #dce5e6; }
+.climate-plan-costs { list-style:none; margin:10px 0 0; padding:0; }
+.climate-plan-costs li { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:3px 14px; padding:9px 0; border-bottom:1px solid #e1e8e8; font-size:.86rem; }
+.climate-plan-costs span { text-align:right; }
+.climate-plan-costs small { grid-column:1 / -1; color:#596d73; }
+.climate-boundary-note { margin:14px 0 0; font-size:.84rem; }
 .financial-comparison { margin-top:24px; padding:24px; border:1px solid #cfdacb; border-radius:14px; background:#fff; }
 .financial-intro { max-width:850px; color:#496153; }
 .financial-reference-note { padding:10px 12px; border-left:4px solid #8a6c2e; background:#fff8e9; color:#604d28; }
@@ -79,5 +94,5 @@ label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, s
 .pathway-note { margin:18px 0 0; color:#52675b; font-size:.84rem; }
 .next-step { background:#e4f0e8; border-color:#bad4c1; } .conditions { background:#fffdf7; } .evidence { background:#fafbf7; } summary { cursor:pointer; } summary span { color:#5d7065; font-size:.9rem; font-weight:400; } .evidence-table { margin-top:16px; border-top:1px solid #d7dfd3; } .evidence-table article { display:grid; grid-template-columns:1.2fr .75fr .8fr 2fr; gap:12px; padding:12px 0; border-bottom:1px solid #d7dfd3; font-size:.86rem; } .evidence-table small { display:block; color:#5a6a60; margin-top:4px; } .source-kind { color:#28684f; font-family:ui-monospace, monospace; font-size:.75rem; } .formula { margin-top:16px; font-size:.85rem; color:#465a4e; }.error { color:#9d2b1d; }
 @media (max-width: 900px) { .quick-inputs, .candidate-fields { grid-template-columns:repeat(2, minmax(0, 1fr)); } .quick-inputs button { justify-self:start; } }
-@media (max-width: 760px) { main { width:min(100% - 20px, 1180px); padding-top:20px; } .comparison-row, .pathway-grid, .financial-grid, .affordable-grid { grid-template-columns:1fr; } .state-panel { border-left:0; border-top:1px solid #d4ddd2; } .barn-panel { min-height:0; } .plan-summary dl, .evidence-table article { grid-template-columns:1fr 1fr; } }
+@media (max-width: 760px) { main { width:min(100% - 20px, 1180px); padding-top:20px; } .comparison-row, .pathway-grid, .financial-grid, .affordable-grid, .climate-period-grid { grid-template-columns:1fr; } .state-panel { border-left:0; border-top:1px solid #d4ddd2; } .barn-panel { min-height:0; } .plan-summary dl, .evidence-table article { grid-template-columns:1fr 1fr; } }
 @media (max-width: 480px) { .quick-inputs, .candidate-fields, .natural-input > form { grid-template-columns:1fr; } .natural-input > form label { grid-column:auto; } }

@@ -86,7 +86,10 @@ class ReferenceInputTest(unittest.TestCase):
             'data-comparison-barn-heading>追加投資がないため、参考状態と同じ牛舎',
             response.text,
         )
-        self.assertIn("将来の暑さに対する十分性は未評価", response.text)
+        self.assertIn(
+            "将来の暑熱期間は、下の背景情報で運転日数と電力費へ分けて確認します",
+            response.text,
+        )
         self.assertNotIn("現在の不足</dt><dd>未評価", response.text)
 
     def test_adjusted_reference_count_remains_a_reference_and_is_recalculated(self) -> None:

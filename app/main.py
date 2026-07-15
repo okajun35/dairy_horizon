@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from decimal import Decimal, ROUND_HALF_UP
 import os
 from pathlib import Path
@@ -14,6 +14,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.climate_profile import (
+    ClimatePeriodSummary,
+    calculate_operating_hours,
+    load_climate_profile,
+    summarize_thi_days,
+)
 from app.financial_screening import (
     FinancialPlan,
     STANDARD_FINANCIAL_ASSUMPTIONS,
@@ -37,6 +43,9 @@ from app.pathways import build_path_comparison
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CLIMATE_PROFILE_PATH = (
+    ROOT / "data/climate_profiles/generated/chiba_city_2025_2034.json"
+)
 
 
 def _static_asset_version(relative_path: str) -> int:
@@ -81,6 +90,115 @@ def _format_milk_kg_per_cow_day(value: Decimal | None) -> str:
         return "評価対象外"
     rounded = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{rounded:.2f}kg／頭・日"
+
+
+def _rounded_int(value: Decimal) -> int:
+    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def _climate_plan_view(
+    plan: FanPlan,
+    summary: ClimatePeriodSummary,
+) -> dict[str, Any]:
+    financial_plan = FinancialPlan(
+        additional_fan_count=plan.additional_fan_count,
+        newly_covered_cow_count=len(plan.newly_covered_cow_ids),
+    )
+    results = {
+        key: calculate_financial_screening(
+            financial_plan,
+            replace(STANDARD_FINANCIAL_ASSUMPTIONS, heat_days_per_year=days),
+        )
+        for key, days in (
+            ("minimum", summary.minimum_annual_days),
+            ("median", summary.median_annual_days),
+            ("maximum", summary.maximum_annual_days),
+        )
+    }
+    break_even_values = tuple(
+        result.break_even_milk_kg_per_cow_day
+        for result in results.values()
+        if result.break_even_milk_kg_per_cow_day is not None
+    )
+    return {
+        "key": plan.key,
+        "label_ja": plan.label_ja,
+        "additional_fan_count": plan.additional_fan_count,
+        "newly_covered_cow_count": len(plan.newly_covered_cow_ids),
+        "annual_electricity_median_yen": _rounded_int(
+            results["median"].incremental_annual_electricity_cost_yen
+        ),
+        "annual_electricity_minimum_yen": _rounded_int(
+            results["minimum"].incremental_annual_electricity_cost_yen
+        ),
+        "annual_electricity_maximum_yen": _rounded_int(
+            results["maximum"].incremental_annual_electricity_cost_yen
+        ),
+        "annual_electricity_median_ja": _format_yen(
+            results["median"].incremental_annual_electricity_cost_yen
+        ),
+        "annual_electricity_range_ja": (
+            f"{_format_yen(results['minimum'].incremental_annual_electricity_cost_yen)}"
+            f"〜{_format_yen(results['maximum'].incremental_annual_electricity_cost_yen)}"
+        ),
+        "break_even_milk_median_kg_per_cow_day": (
+            float(results["median"].break_even_milk_kg_per_cow_day)
+            if results["median"].break_even_milk_kg_per_cow_day is not None
+            else None
+        ),
+        "break_even_milk_minimum_kg_per_cow_day": (
+            float(min(break_even_values)) if break_even_values else None
+        ),
+        "break_even_milk_maximum_kg_per_cow_day": (
+            float(max(break_even_values)) if break_even_values else None
+        ),
+    }
+
+
+def _climate_period_view(
+    summary: ClimatePeriodSummary,
+    plans: tuple[FanPlan, ...],
+) -> dict[str, Any]:
+    operating_hours = calculate_operating_hours(
+        summary, STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
+    )
+    return {
+        "key": f"{summary.start_year}_{summary.end_year}",
+        "start_year": summary.start_year,
+        "end_year": summary.end_year,
+        "model_count": summary.model_count,
+        "median_annual_days": float(summary.median_annual_days),
+        "minimum_annual_days": float(summary.minimum_annual_days),
+        "maximum_annual_days": float(summary.maximum_annual_days),
+        "median_annual_days_ja": f"{_rounded_int(summary.median_annual_days)}日／年",
+        "annual_days_range_ja": (
+            f"{_rounded_int(summary.minimum_annual_days)}"
+            f"〜{_rounded_int(summary.maximum_annual_days)}日／年"
+        ),
+        "median_annual_hours": float(operating_hours.median_annual_hours),
+        "minimum_annual_hours": float(operating_hours.minimum_annual_hours),
+        "maximum_annual_hours": float(operating_hours.maximum_annual_hours),
+        "plans": tuple(_climate_plan_view(plan, summary) for plan in plans[1:]),
+    }
+
+
+def _climate_background(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
+    profile = load_climate_profile(CLIMATE_PROFILE_PATH)
+    summaries = (
+        summarize_thi_days(profile, 2026, 2030),
+        summarize_thi_days(profile, 2031, 2034),
+    )
+    return {
+        "available": True,
+        "region_name_ja": summaries[0].region_name_ja,
+        "thi_threshold": float(summaries[0].thi_threshold),
+        "operating_hours_per_day": float(
+            STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
+        ),
+        "periods": tuple(_climate_period_view(summary, plans) for summary in summaries),
+        "source_provider": summaries[0].source_provider,
+        "source_dataset": summaries[0].source_dataset,
+    }
 
 
 def _financial_plan_view(plan: FanPlan) -> dict[str, str | int]:
@@ -235,7 +353,7 @@ def _evidence(
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
         {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
     ) + comparison_rows + (
-        {"item": "将来気候", "value": "保存済み・この画面では未接続", "kind": "derived", "source": "CMIP6複数モデルの生成済み気候プロファイル", "note": "接続時も、ファン台数・投資時期の計算には使いません。"},
+        {"item": "将来気候", "value": "2026〜2034年を期間集計して表示", "kind": "official_projection_report", "source": "Open-Meteo Climate API・CMIP6複数モデルの保存済みプロファイル", "note": "日平均THI 72以上の日数をモデル間の中央値と範囲で示します。ファン台数・投資時期には使いません。"},
     )
 
 
@@ -263,6 +381,7 @@ def _dashboard(
         "navigation": navigation,
         "path_comparison": path_comparison,
         "financial_comparison": _financial_comparison(navigation.plans),
+        "climate_background": _climate_background(navigation.plans),
         "viewer_payload": asdict(navigation) | {
             "selected_plan": "first_phase",
             "path_comparison": asdict(path_comparison),

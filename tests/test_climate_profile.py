@@ -7,6 +7,7 @@ import unittest
 
 from app.climate_profile import (
     ClimateProfileError,
+    calculate_operating_hours,
     load_climate_profile,
     summarize_thi_days,
 )
@@ -72,6 +73,24 @@ class ClimateProfileTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ClimateProfileError, "未取得"):
             summarize_thi_days(profile, 2031, 2035)
+
+    def test_operating_hours_use_an_explicit_daily_hours_assumption(self) -> None:
+        profile = load_climate_profile(PROFILE_PATH)
+        summary = summarize_thi_days(profile, 2026, 2030)
+
+        hours = calculate_operating_hours(summary, Decimal("24"))
+
+        self.assertEqual(hours.hours_per_target_day, Decimal("24"))
+        self.assertEqual(hours.median_annual_hours, Decimal("2308.8"))
+        self.assertEqual(hours.minimum_annual_hours, Decimal("1958.4"))
+        self.assertEqual(hours.maximum_annual_hours, Decimal("2462.4"))
+
+    def test_operating_hours_reject_implicit_more_than_one_day(self) -> None:
+        profile = load_climate_profile(PROFILE_PATH)
+        summary = summarize_thi_days(profile, 2026, 2030)
+
+        with self.assertRaisesRegex(ClimateProfileError, "0〜24"):
+            calculate_operating_hours(summary, Decimal("25"))
 
     def test_missing_common_models_are_rejected(self) -> None:
         profile = {
