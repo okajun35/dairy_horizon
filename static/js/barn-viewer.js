@@ -9,6 +9,7 @@ const allCows = payload.cows_by_lane.flat();
 const referenceMode = payload.input_mode === 'guideline_reference';
 const baselineLabel = referenceMode ? '参考値' : '現在';
 const selectedState = {
+  comparisonHeading: document.querySelector('[data-comparison-barn-heading]'),
   label: document.querySelector('[data-selected-label]'),
   additional: document.querySelector('[data-selected-additional]'),
   active: document.querySelector('[data-selected-active]'),
@@ -23,6 +24,14 @@ let selectedPlan = payload.selected_plan || 'current';
 
 function planFor(key) { return payload.plans.find((plan) => plan.key === key); }
 function pathwayFor(key) { return payload.path_comparison.paths.find((path) => path.key === key); }
+
+function comparisonHeading(plan, pathway) {
+  if (!pathway.investment_year || plan.additional_fan_count === 0) {
+    return `追加投資がないため、${referenceMode ? '参考状態' : '現在'}と同じ牛舎`;
+  }
+  const referencePrefix = referenceMode ? '参考値から' : '';
+  return `${pathway.investment_year}年に${referencePrefix}${plan.additional_fan_count}台を追加した直後の牛舎`;
+}
 
 function cumulativeNote(pathway) {
   const counts = pathway.years.map((year) => year.uncovered_cow_count);
@@ -90,6 +99,7 @@ function renderComparison() {
   const plan = planFor(selectedPlan);
   const pathway = pathwayFor(selectedPlan);
   renderBarn(comparisonViewer, comparisonDetail, plan);
+  selectedState.comparisonHeading.textContent = comparisonHeading(plan, pathway);
   selectedState.label.textContent = plan.label_ja;
   selectedState.additional.textContent = `+${plan.additional_fan_count}台`;
   selectedState.active.textContent = `${plan.active_fan_count}台`;

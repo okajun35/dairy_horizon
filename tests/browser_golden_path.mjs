@@ -86,6 +86,7 @@ async function waitForPage(evaluate, expectedQuery = null) {
 
 async function comparisonState(evaluate) {
   return evaluate(`JSON.stringify({
+    heading: document.querySelector('[data-comparison-barn-heading]').textContent.trim(),
     label: document.querySelector('[data-selected-label]').textContent.trim(),
     additional: document.querySelector('[data-selected-additional]').textContent.trim(),
     active: document.querySelector('[data-selected-active]').textContent.trim(),
@@ -132,6 +133,7 @@ async function main() {
     assertEqual(
       await comparisonState(evaluate),
       JSON.stringify({
+        heading: '2026年に5台を追加した直後の牛舎',
         label: '第1期：小さく始める',
         additional: '+5台',
         active: '15台',
@@ -159,6 +161,7 @@ async function main() {
     assertEqual(
       await comparisonState(evaluate),
       JSON.stringify({
+        heading: '2026年に10台を追加した直後の牛舎',
         label: '頭数目安まで追加',
         additional: '+10台',
         active: '20台',
@@ -182,6 +185,7 @@ async function main() {
     assertEqual(
       await comparisonState(evaluate),
       JSON.stringify({
+        heading: '2028年に3台を追加した直後の牛舎',
         label: '第1期：小さく始める',
         additional: '+3台',
         active: '13台',
@@ -204,6 +208,7 @@ async function main() {
     assertEqual(
       await comparisonState(evaluate),
       JSON.stringify({
+        heading: '2028年に8台を追加した直後の牛舎',
         label: '今回の計画台数まで追加',
         additional: '+8台',
         active: '18台',
@@ -229,6 +234,7 @@ async function main() {
     assertEqual(
       await comparisonState(evaluate),
       JSON.stringify({
+        heading: '2026年に参考値から14台を追加した直後の牛舎',
         label: '頭数目安まで追加',
         additional: '+14台',
         active: '34台',

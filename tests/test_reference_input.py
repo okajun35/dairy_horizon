@@ -80,9 +80,12 @@ class ReferenceInputTest(unittest.TestCase):
         self.assertIn('name="existing_fan_count" type="number" min="0" value="34"', response.text)
         self.assertIn("台数を増減して牛舎を更新できます", response.text)
         self.assertIn('id="comparison-barn-viewer"', response.text)
-        self.assertIn("参考値から追加すると、どこが変わるか", response.text)
         self.assertIn("未カバー状態の延べ規模", response.text)
         self.assertIn("0 — 未カバーなし", response.text)
+        self.assertIn(
+            'data-comparison-barn-heading>追加投資がないため、参考状態と同じ牛舎',
+            response.text,
+        )
         self.assertIn("将来の暑さに対する十分性は未評価", response.text)
         self.assertNotIn("現在の不足</dt><dd>未評価", response.text)
 

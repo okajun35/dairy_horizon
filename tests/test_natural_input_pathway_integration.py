@@ -126,6 +126,10 @@ class NaturalInputPathwayIntegrationTest(unittest.TestCase):
             self.assertEqual(path["next_decision_status"], "comparison_only")
             self.assertEqual(path["cumulative_uncovered_cow_years"], 0)
             self.assertTrue(all(year["investment_fan_count"] == 0 for year in path["years"]))
+        self.assertIn(
+            'data-comparison-barn-heading>追加投資がないため、現在と同じ牛舎',
+            response.text,
+        )
 
 
 if __name__ == "__main__":

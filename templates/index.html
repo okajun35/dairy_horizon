@@ -115,7 +115,8 @@
       <div class="comparison-row">
         <div class="barn-panel comparison-barn-panel">
           <p class="section-kicker">比較後の牛舎</p>
-          <h2>{% if reference_mode %}参考値から追加すると、どこが変わるか{% else %}追加すると、どこが変わるか{% endif %}</h2>
+          <h2 data-comparison-barn-heading>{% if selected_path.investment_year and selected_plan.additional_fan_count %}{{ selected_path.investment_year }}年に{% if reference_mode %}参考値から{% endif %}{{ selected_plan.additional_fan_count }}台を追加した直後の牛舎{% else %}追加投資がないため、{% if reference_mode %}参考状態{% else %}現在{% endif %}と同じ牛舎{% endif %}</h2>
+          <p class="comparison-time-note">この牛舎図は5年後の予測ではありません。年度別の比較期間は{{ pathway.start_year }}〜{{ pathway.end_year }}年です。</p>
           <div class="plan-tabs" role="tablist" aria-label="比較する整備段階">
             {% for plan in nav.plans[1:] %}
               <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>

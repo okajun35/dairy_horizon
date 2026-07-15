@@ -131,6 +131,14 @@ class NavigatorTest(unittest.TestCase):
         self.assertIn('id="comparison-barn-viewer"', response.text)
         self.assertIn("現在の牛舎", response.text)
         self.assertIn("比較後の牛舎", response.text)
+        self.assertIn(
+            'data-comparison-barn-heading>2026年に5台を追加した直後の牛舎',
+            response.text,
+        )
+        self.assertIn(
+            "この牛舎図は5年後の予測ではありません。年度別の比較期間は2026〜2030年です。",
+            response.text,
+        )
         self.assertIn("比較するとどう変わるか", response.text)
         self.assertIn("data-selected-uncovered", response.text)
         self.assertIn("標準仮定・計算根拠", response.text)
@@ -226,6 +234,10 @@ class NavigatorTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('<option value="2028" selected>2028年</option>', response.text)
+        self.assertIn(
+            'data-comparison-barn-heading>2028年に5台を追加した直後の牛舎',
+            response.text,
+        )
         self.assertIn("105頭分・年", response.text)
         self.assertIn("60頭分・年", response.text)
         self.assertIn("2029年夏に見直す", response.text)
