@@ -26,6 +26,7 @@ python -m uvicorn app.main:app --reload
 - 参考台数でも、参考値のまま・第1期・頭数目安まで追加した牛舎を比較
 - 現在・第1期・全数整備を牛舎表示で切替
 - 未カバー推計牛と新たにカバーされる牛を確認
+- 全酪連の標準例を使い、増分設備費・年間増分電気代・回収に必要な防止乳量・払える設備費を純粋関数で計算（画面接続は未実施）
 - 次の現場確認事項を一つ提示
 - 末尾で標準仮定・計算根拠・出典区分を表示
 
@@ -51,4 +52,15 @@ set -a
 source .env
 set +a
 RUN_OPENAI_INTEGRATION_TESTS=1 python -m unittest tests.test_natural_input.OpenAINaturalInputLiveTest -v
+```
+
+ブラウザの黄金経路は、アプリを起動した状態でChromiumを別ターミナルからデバッグ起動し、Node.jsの検証スクリプトを接続します。
+
+```bash
+chromium --headless --disable-gpu --no-sandbox --remote-debugging-port=9224 \
+  --user-data-dir=/tmp/dairy-horizon-browser-check http://127.0.0.1:8000/
+```
+
+```bash
+node tests/browser_golden_path.mjs
 ```

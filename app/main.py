@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.financial_screening import STANDARD_USEFUL_LIFE_YEARS
 from app.navigator import (
     BarnInput,
     CurrentBarnState,
@@ -100,6 +101,7 @@ def _evidence(
     return input_rows + (
         {"item": "ファンのカバー目安", "value": "3頭／台・牛体付近2m/s以上", "kind": current_state.coverage_basis_kind, "source": "全酪連 COW BELL No.178『暑熱対策の設備投資を考える』pp.6-8", "note": "実際の間隔・風量・設置位置で必ず確認します。"},
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
+        {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
     ) + comparison_rows + (
         {"item": "将来気候", "value": "保存済み・この画面では未接続", "kind": "derived", "source": "CMIP6複数モデルの生成済み気候プロファイル", "note": "接続時も、ファン台数・投資時期の計算には使いません。"},
     )
