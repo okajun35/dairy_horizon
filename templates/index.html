@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dairy Horizon | 適応投資経路ナビゲーター</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ static_asset_version('style.css') }}">
 </head>
 <body>
   {% set nav = dashboard.navigation %}
@@ -276,6 +276,6 @@
     </details>
   </main>
   <script id="barn-payload" type="application/json">{{ dashboard.viewer_payload|tojson }}</script>
-  <script type="module" src="{{ url_for('static', path='js/barn-viewer.js') }}"></script>
+  <script type="module" src="{{ url_for('static', path='js/barn-viewer.js') }}?v={{ static_asset_version('js/barn-viewer.js') }}"></script>
 </body>
 </html>

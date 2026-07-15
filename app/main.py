@@ -37,10 +37,18 @@ from app.pathways import build_path_comparison
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _static_asset_version(relative_path: str) -> int:
+    """Return a changing query value so browsers do not reuse stale assets."""
+    return (ROOT / "static" / relative_path).stat().st_mtime_ns
+
+
 load_dotenv(ROOT / ".env")
 app = FastAPI(title="Dairy Horizon")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
+templates.env.globals["static_asset_version"] = _static_asset_version
 SUPPORTED_REGION_JA = "千葉市"
 
 

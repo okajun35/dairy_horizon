@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 
 from fastapi.testclient import TestClient
@@ -112,6 +113,8 @@ class NavigatorTest(unittest.TestCase):
     def test_screen_contains_barn_and_evidence(self) -> None:
         response = TestClient(app).get("/")
         self.assertEqual(response.status_code, 200)
+        self.assertRegex(response.text, r'style\.css\?v=\d+')
+        self.assertRegex(response.text, r'barn-viewer\.js\?v=\d+')
         self.assertIn(
             '<input value="千葉市" disabled aria-describedby="region-availability-note">',
             response.text,
