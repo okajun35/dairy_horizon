@@ -237,6 +237,37 @@
       </details>
     </section>
 
+    <section class="result-explanation" aria-labelledby="result-explanation-heading">
+      <p class="section-kicker">結果の読み解き</p>
+      <h2 id="result-explanation-heading">AIで計算結果を読み解く</h2>
+      <p>牛舎・THI・財務の計算済み結果だけをOpenAI APIへ送り、成立条件と次の確認事項を平易に整理します。数値はAIに計算させません。</p>
+      <form method="post" action="/explain">
+        <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
+        <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
+        <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
+        <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
+        <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
+        <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
+        <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
+        <input name="reference_mode" type="hidden" value="{{ 'true' if reference_mode else 'false' }}">
+        <button type="submit">{% if dashboard.result_explanation %}読み解きを更新{% else %}AIで結果を読み解く{% endif %}</button>
+      </form>
+      {% if dashboard.result_explanation %}
+        <div class="explanation-answer">
+          <p class="section-kicker">AIによる読み解き</p>
+          {% if dashboard.result_explanation.api_failed %}<p class="explanation-fallback-note">AI説明を利用できなかったため、計算結果から定型文を表示しています。</p>{% endif %}
+          <ul class="explanation-facts">
+            {% for fact in dashboard.result_explanation.facts_ja %}<li>{{ fact }}</li>{% endfor %}
+          </ul>
+          <h3>{{ dashboard.result_explanation.headline_ja }}</h3>
+          <p>{{ dashboard.result_explanation.interpretation_ja }}</p>
+          <p>{{ dashboard.result_explanation.condition_ja }}</p>
+          <dl><div><dt>次に確認する一件</dt><dd>{{ dashboard.result_explanation.next_check_ja }}</dd></div></dl>
+          <small class="source-kind">{{ dashboard.result_explanation.source_kind }}</small>
+        </div>
+      {% endif %}
+    </section>
+
     {% if reference_mode %}
     <section class="pathway reference-pathway" aria-labelledby="pathway-heading">
       <p class="section-kicker">年度別経路</p>

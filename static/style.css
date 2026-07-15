@@ -69,6 +69,16 @@ label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, s
 .financial-assumption-list dd { font-size:.94rem; text-align:right; }
 .financial-assumption-list small { grid-column:1 / -1; }
 .financial-source { margin-bottom:0; }
+.result-explanation { margin-top:24px; padding:24px; border:1px solid #cfdacb; border-radius:14px; background:#fff; }
+.result-explanation > p { max-width:860px; color:#496153; }
+.explanation-answer { margin-top:18px; padding:18px; border-left:4px solid #39785d; border-radius:10px; background:#edf6ef; }
+.explanation-answer h3 { margin:12px 0 8px; }
+.explanation-fallback-note { padding:9px 11px; border-radius:7px; background:#fff8e9; color:#604d28; }
+.explanation-facts { margin:10px 0; padding-left:22px; }
+.explanation-facts li { margin:6px 0; }
+.explanation-answer dl { margin:14px 0 8px; }
+.explanation-answer dl div { display:flex; justify-content:space-between; gap:16px; padding:12px; border-radius:8px; background:#fff; }
+.explanation-answer dd { color:#276c4d; font-size:1rem; text-align:right; }
 .pathway, .next-step, .conditions, .evidence { margin-top: 24px; padding: 24px; border-radius: 14px; background: #fff; border: 1px solid #d7dfd3; } .plan-tabs { display:flex; gap:8px; flex-wrap:wrap; } .plan-tab { background:#e4ece6; color:#234a39; } .plan-tab.active { background:#28684f; color:white; } .plan-summary { margin-top:14px; padding:18px; background:#f5f8f2; border-radius:10px; } .plan-summary h3 { margin:0 0 10px; } .plan-summary dl { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin:0; } .plan-summary dt { color:#587064; font-size:.8rem; } .plan-summary dd { margin:4px 0 0; font-size:1.1rem; }
 .first-phase-control { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-top:16px; padding:14px; border-radius:10px; background:#edf3eb; } .first-phase-control label { min-width:160px; } .first-phase-control label span { display:flex; align-items:center; gap:5px; } .first-phase-control small { flex-basis:100%; color:#496153; }
 .pathway-comparison > p:not(.section-kicker):first-of-type { color:#496153; }

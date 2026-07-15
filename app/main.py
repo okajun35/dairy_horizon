@@ -40,6 +40,11 @@ from app.natural_input import (
     OpenAINaturalInputInterpreter,
 )
 from app.pathways import build_path_comparison
+from app.result_explanation import (
+    OpenAIResultExplainer,
+    ResultExplanationUnavailable,
+    build_fallback_explanation,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +69,15 @@ SUPPORTED_REGION_JA = "千葉市"
 def get_natural_input_interpreter() -> OpenAINaturalInputInterpreter:
     """Build the API adapter without exposing credentials to route or template code."""
     return OpenAINaturalInputInterpreter(
+        os.getenv("OPENAI_API_KEY", ""),
+        os.getenv("OPENAI_MODEL", "gpt-5.6-luna"),
+    )
+
+
+def get_result_explainer() -> OpenAIResultExplainer:
+    """Build the explanation adapter without exposing credentials to the UI."""
+
+    return OpenAIResultExplainer(
         os.getenv("OPENAI_API_KEY", ""),
         os.getenv("OPENAI_MODEL", "gpt-5.6-luna"),
     )
@@ -201,7 +215,7 @@ def _climate_background(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
     }
 
 
-def _financial_plan_view(plan: FanPlan) -> dict[str, str | int]:
+def _financial_plan_view(plan: FanPlan) -> dict[str, Any]:
     result = calculate_financial_screening(
         FinancialPlan(
             additional_fan_count=plan.additional_fan_count,
@@ -220,6 +234,15 @@ def _financial_plan_view(plan: FanPlan) -> dict[str, str | int]:
         "label_ja": plan.label_ja,
         "additional_fan_count": plan.additional_fan_count,
         "newly_covered_cow_count": len(plan.newly_covered_cow_ids),
+        "incremental_capex_yen": _rounded_int(result.incremental_capex_yen),
+        "annual_electricity_yen": _rounded_int(
+            result.incremental_annual_electricity_cost_yen
+        ),
+        "break_even_milk_kg_per_cow_day": (
+            float(result.break_even_milk_kg_per_cow_day)
+            if result.break_even_milk_kg_per_cow_day is not None
+            else None
+        ),
         "incremental_capex_ja": _format_yen(result.incremental_capex_yen),
         "annual_electricity_ja": _format_yen(
             result.incremental_annual_electricity_cost_yen
@@ -301,6 +324,129 @@ def _financial_comparison(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
             },
         ),
     }
+
+
+def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
+    """Build the only numeric contract sent to the explanation API."""
+
+    navigation = dashboard["navigation"]
+    current = navigation.current_state
+    financial_by_key = {
+        plan["key"]: plan for plan in dashboard["financial_comparison"]["plans"]
+    }
+    plans: list[dict[str, Any]] = []
+    for plan in navigation.plans[1:]:
+        financial = financial_by_key[plan.key]
+        climate_periods: list[dict[str, Any]] = []
+        for period in dashboard["climate_background"]["periods"]:
+            climate_plan = next(
+                item for item in period["plans"] if item["key"] == plan.key
+            )
+            climate_periods.append(
+                {
+                    "start_year": period["start_year"],
+                    "end_year": period["end_year"],
+                    "annual_electricity_median_yen": climate_plan[
+                        "annual_electricity_median_yen"
+                    ],
+                    "annual_electricity_minimum_yen": climate_plan[
+                        "annual_electricity_minimum_yen"
+                    ],
+                    "annual_electricity_maximum_yen": climate_plan[
+                        "annual_electricity_maximum_yen"
+                    ],
+                    "break_even_milk_median_kg_per_cow_day": climate_plan[
+                        "break_even_milk_median_kg_per_cow_day"
+                    ],
+                    "break_even_milk_minimum_kg_per_cow_day": climate_plan[
+                        "break_even_milk_minimum_kg_per_cow_day"
+                    ],
+                    "break_even_milk_maximum_kg_per_cow_day": climate_plan[
+                        "break_even_milk_maximum_kg_per_cow_day"
+                    ],
+                }
+            )
+        plans.append(
+            {
+                "key": plan.key,
+                "label_ja": plan.label_ja,
+                "additional_fan_count": plan.additional_fan_count,
+                "newly_covered_cow_count": len(plan.newly_covered_cow_ids),
+                "remaining_uncovered_cow_count": (
+                    navigation.inputs.lactating_cows - len(plan.covered_cow_ids)
+                ),
+                "capex_yen": financial["incremental_capex_yen"],
+                "standard_annual_electricity_yen": financial[
+                    "annual_electricity_yen"
+                ],
+                "standard_break_even_milk_kg_per_cow_day": financial[
+                    "break_even_milk_kg_per_cow_day"
+                ],
+                "climate_periods": climate_periods,
+            }
+        )
+
+    climate = dashboard["climate_background"]
+    return {
+        "input": {
+            "region_ja": navigation.inputs.region_ja,
+            "lactating_cows": navigation.inputs.lactating_cows,
+            "lane_count": navigation.inputs.lane_count,
+            "existing_fan_count": navigation.inputs.existing_fan_count,
+            "reference_mode": dashboard["input_mode"] == "guideline_reference",
+        },
+        "current": {
+            "guideline_fan_count": current.guideline_fan_count,
+            "fan_shortage": current.guideline_gap_fan_count,
+            "uncovered_cow_count": len(current.estimated_uncovered_cow_ids),
+        },
+        "plans": plans,
+        "climate": {
+            "region_name_ja": climate["region_name_ja"],
+            "thi_threshold": climate["thi_threshold"],
+            "operating_hours_per_day": climate["operating_hours_per_day"],
+            "periods": tuple(
+                {
+                    "start_year": period["start_year"],
+                    "end_year": period["end_year"],
+                    "model_count": period["model_count"],
+                    "median_annual_days": period["median_annual_days"],
+                    "minimum_annual_days": period["minimum_annual_days"],
+                    "maximum_annual_days": period["maximum_annual_days"],
+                }
+                for period in climate["periods"]
+            ),
+        },
+        "boundaries": {
+            "climate_changes_fan_count": False,
+            "recommend_investment_year": False,
+            "climate_data_end_year": 2034,
+            "unavailable_after_end_year": True,
+        },
+    }
+
+
+def _result_facts_ja(payload: dict[str, Any]) -> tuple[str, ...]:
+    current = payload["current"]
+    first_phase = payload["plans"][0]
+    near_future = payload["climate"]["periods"][0]
+    if first_phase["additional_fan_count"]:
+        plan_fact = (
+            f"第1期は{first_phase['additional_fan_count']}台追加で"
+            f"{first_phase['newly_covered_cow_count']}頭を新たにカバーし、"
+            f"導入費は{first_phase['capex_yen']:,}円です。"
+        )
+    else:
+        plan_fact = "現在の入力では、第1期の追加投資はありません。"
+    return (
+        f"現在は頭数目安より{current['fan_shortage']}台少なく、"
+        f"未カバー推計は{current['uncovered_cow_count']}頭です。",
+        plan_fact,
+        f"{near_future['start_year']}〜{near_future['end_year']}年の暑熱対象日は"
+        f"中央値{_rounded_int(Decimal(str(near_future['median_annual_days'])))}日、"
+        f"モデル範囲{_rounded_int(Decimal(str(near_future['minimum_annual_days'])))}"
+        f"〜{_rounded_int(Decimal(str(near_future['maximum_annual_days'])))}日／年です。",
+    )
 
 
 def _evidence(
@@ -467,6 +613,57 @@ def index(
         context={
             "dashboard": dashboard,
             "error": error,
+            "candidate": None,
+            "natural_input_error": None,
+            "farm_description": "",
+        },
+    )
+
+
+@app.post("/explain", response_class=HTMLResponse)
+def explain_screening_result(
+    request: Request,
+    lactating_cows: int = Form(...),
+    lane_count: int = Form(...),
+    existing_fan_count: int = Form(...),
+    first_phase_fan_count: int | None = Form(None),
+    investment_year: int = Form(...),
+    planned_fan_count: str | None = Form(None),
+    region_ja: str = Form(SUPPORTED_REGION_JA),
+    reference_mode: bool = Form(False),
+    explainer: OpenAIResultExplainer = Depends(get_result_explainer),
+) -> HTMLResponse:
+    region_ja = SUPPORTED_REGION_JA
+    parsed_planned_fan_count = _optional_int(
+        planned_fan_count, "今回の計画総台数"
+    )
+    dashboard = _dashboard(
+        lactating_cows,
+        lane_count,
+        existing_fan_count,
+        first_phase_fan_count,
+        investment_year,
+        parsed_planned_fan_count,
+        region_ja,
+        reference_mode,
+    )
+    payload = _result_explanation_payload(dashboard)
+    api_failed = False
+    try:
+        explanation = explainer.explain(payload)
+    except ResultExplanationUnavailable:
+        explanation = build_fallback_explanation(reference_mode)
+        api_failed = True
+    dashboard["result_explanation"] = asdict(explanation) | {
+        "facts_ja": _result_facts_ja(payload),
+        "api_failed": api_failed,
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "dashboard": dashboard,
+            "error": None,
             "candidate": None,
             "natural_input_error": None,
             "farm_description": "",
