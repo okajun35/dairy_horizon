@@ -14,9 +14,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.climate_adjustment import (
+    ClimateAdjustmentError,
+    ObservationAnchoredClimateSummary,
+    anchor_future_thi_days,
+    load_observed_thi_baseline,
+)
 from app.climate_profile import (
     ClimatePeriodSummary,
-    calculate_operating_hours,
     load_climate_profile,
     summarize_thi_days,
 )
@@ -48,8 +53,14 @@ from app.result_explanation import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CLIMATE_PROFILE_PATH = (
+FUTURE_CLIMATE_PROFILE_PATH = (
     ROOT / "data/climate_profiles/generated/chiba_city_2025_2034.json"
+)
+BASELINE_CLIMATE_PROFILE_PATH = (
+    ROOT / "data/climate_profiles/generated/chiba_city_2020_2025.json"
+)
+OBSERVED_THI_BASELINE_PATH = (
+    ROOT / "data/observed/jma_chiba_thi_summary_2020_2025.json"
 )
 
 
@@ -112,7 +123,7 @@ def _rounded_int(value: Decimal) -> int:
 
 def _climate_plan_view(
     plan: FanPlan,
-    summary: ClimatePeriodSummary,
+    summary: ObservationAnchoredClimateSummary,
 ) -> dict[str, Any]:
     financial_plan = FinancialPlan(
         additional_fan_count=plan.additional_fan_count,
@@ -170,12 +181,11 @@ def _climate_plan_view(
 
 
 def _climate_period_view(
-    summary: ClimatePeriodSummary,
+    summary: ObservationAnchoredClimateSummary,
+    raw_model_summary: ClimatePeriodSummary,
     plans: tuple[FanPlan, ...],
 ) -> dict[str, Any]:
-    operating_hours = calculate_operating_hours(
-        summary, STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
-    )
+    hours_per_day = STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
     return {
         "key": f"{summary.start_year}_{summary.end_year}",
         "start_year": summary.start_year,
@@ -184,34 +194,91 @@ def _climate_period_view(
         "median_annual_days": float(summary.median_annual_days),
         "minimum_annual_days": float(summary.minimum_annual_days),
         "maximum_annual_days": float(summary.maximum_annual_days),
-        "median_annual_days_ja": f"{_rounded_int(summary.median_annual_days)}日／年",
-        "annual_days_range_ja": (
+        "median_change_days": float(summary.median_change_days),
+        "central_lower_days": float(summary.central_lower_days),
+        "central_upper_days": float(summary.central_upper_days),
+        "central_days_range_ja": (
+            f"{_rounded_int(summary.central_lower_days)}"
+            f"〜{_rounded_int(summary.central_upper_days)}日／年"
+        ),
+        "full_days_range_ja": (
             f"{_rounded_int(summary.minimum_annual_days)}"
             f"〜{_rounded_int(summary.maximum_annual_days)}日／年"
         ),
-        "median_annual_hours": float(operating_hours.median_annual_hours),
-        "minimum_annual_hours": float(operating_hours.minimum_annual_hours),
-        "maximum_annual_hours": float(operating_hours.maximum_annual_hours),
+        "median_change_days_ja": (
+            f"{summary.median_change_days:+.0f}日／年"
+        ),
+        "median_annual_hours": float(summary.median_annual_days * hours_per_day),
+        "minimum_annual_hours": float(summary.minimum_annual_days * hours_per_day),
+        "maximum_annual_hours": float(summary.maximum_annual_days * hours_per_day),
+        "raw_model_median_annual_days": float(
+            raw_model_summary.median_annual_days
+        ),
+        "raw_model_minimum_annual_days": float(
+            raw_model_summary.minimum_annual_days
+        ),
+        "raw_model_maximum_annual_days": float(
+            raw_model_summary.maximum_annual_days
+        ),
+        "raw_model_median_annual_days_ja": (
+            f"{_rounded_int(raw_model_summary.median_annual_days)}日"
+        ),
+        "raw_model_annual_days_range_ja": (
+            f"{_rounded_int(raw_model_summary.minimum_annual_days)}"
+            f"〜{_rounded_int(raw_model_summary.maximum_annual_days)}日／年"
+        ),
         "plans": tuple(_climate_plan_view(plan, summary) for plan in plans[1:]),
     }
 
 
 def _climate_background(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
-    profile = load_climate_profile(CLIMATE_PROFILE_PATH)
-    summaries = (
-        summarize_thi_days(profile, 2026, 2030),
-        summarize_thi_days(profile, 2031, 2034),
+    observed = load_observed_thi_baseline(OBSERVED_THI_BASELINE_PATH)
+    model_baseline = summarize_thi_days(
+        load_climate_profile(BASELINE_CLIMATE_PROFILE_PATH), 2020, 2025
+    )
+    future_profile = load_climate_profile(FUTURE_CLIMATE_PROFILE_PATH)
+    raw_future_summaries = (
+        summarize_thi_days(future_profile, 2026, 2030),
+        summarize_thi_days(future_profile, 2031, 2034),
+    )
+    if observed.thi_threshold != model_baseline.thi_threshold:
+        raise ClimateAdjustmentError("観測とモデル基準のTHI閾値が一致しません。")
+    adjusted_summaries = tuple(
+        anchor_future_thi_days(
+            observed_lower_days=observed.lower_days,
+            observed_upper_days=observed.upper_days,
+            model_baseline=model_baseline,
+            model_future=future_summary,
+        )
+        for future_summary in raw_future_summaries
     )
     return {
         "available": True,
-        "region_name_ja": summaries[0].region_name_ja,
-        "thi_threshold": float(summaries[0].thi_threshold),
+        "region_name_ja": observed.region_name_ja,
+        "thi_threshold": float(observed.thi_threshold),
         "operating_hours_per_day": float(
             STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
         ),
-        "periods": tuple(_climate_period_view(summary, plans) for summary in summaries),
-        "source_provider": summaries[0].source_provider,
-        "source_dataset": summaries[0].source_dataset,
+        "observed_baseline": {
+            "start_year": observed.start_year,
+            "end_year": observed.end_year,
+            "lower_annual_days": float(observed.lower_days),
+            "upper_annual_days": float(observed.upper_days),
+            "annual_days_range_ja": (
+                f"{_rounded_int(observed.lower_days)}"
+                f"〜{_rounded_int(observed.upper_days)}日／年"
+            ),
+            "source_publisher": observed.source_publisher,
+            "source_dataset": observed.source_dataset,
+        },
+        "periods": tuple(
+            _climate_period_view(adjusted, raw, plans)
+            for adjusted, raw in zip(
+                adjusted_summaries, raw_future_summaries, strict=True
+            )
+        ),
+        "source_provider": model_baseline.source_provider,
+        "source_dataset": model_baseline.source_dataset,
     }
 
 
@@ -405,14 +472,27 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
             "region_name_ja": climate["region_name_ja"],
             "thi_threshold": climate["thi_threshold"],
             "operating_hours_per_day": climate["operating_hours_per_day"],
+            "observed_baseline": climate["observed_baseline"],
             "periods": tuple(
                 {
                     "start_year": period["start_year"],
                     "end_year": period["end_year"],
                     "model_count": period["model_count"],
+                    "median_change_days": period["median_change_days"],
+                    "central_lower_days": period["central_lower_days"],
+                    "central_upper_days": period["central_upper_days"],
                     "median_annual_days": period["median_annual_days"],
                     "minimum_annual_days": period["minimum_annual_days"],
                     "maximum_annual_days": period["maximum_annual_days"],
+                    "raw_model_median_annual_days": period[
+                        "raw_model_median_annual_days"
+                    ],
+                    "raw_model_minimum_annual_days": period[
+                        "raw_model_minimum_annual_days"
+                    ],
+                    "raw_model_maximum_annual_days": period[
+                        "raw_model_maximum_annual_days"
+                    ],
                 }
                 for period in climate["periods"]
             ),
@@ -429,6 +509,7 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
 def _result_facts_ja(payload: dict[str, Any]) -> tuple[str, ...]:
     current = payload["current"]
     first_phase = payload["plans"][0]
+    observed = payload["climate"]["observed_baseline"]
     near_future = payload["climate"]["periods"][0]
     if first_phase["additional_fan_count"]:
         plan_fact = (
@@ -442,9 +523,13 @@ def _result_facts_ja(payload: dict[str, Any]) -> tuple[str, ...]:
         f"現在は頭数目安より{current['fan_shortage']}台少なく、"
         f"未カバー推計は{current['uncovered_cow_count']}頭です。",
         plan_fact,
+        f"日平均THI {payload['climate']['thi_threshold']:.0f}以上の日数は、"
+        f"現在相当は{_rounded_int(Decimal(str(observed['lower_annual_days'])))}"
+        f"〜{_rounded_int(Decimal(str(observed['upper_annual_days'])))}日／年です。",
         f"{near_future['start_year']}〜{near_future['end_year']}年の暑熱対象日は"
-        f"中央値{_rounded_int(Decimal(str(near_future['median_annual_days'])))}日、"
-        f"モデル範囲{_rounded_int(Decimal(str(near_future['minimum_annual_days'])))}"
+        f"中心目安{_rounded_int(Decimal(str(near_future['central_lower_days'])))}"
+        f"〜{_rounded_int(Decimal(str(near_future['central_upper_days'])))}日、"
+        f"モデル差を含む範囲{_rounded_int(Decimal(str(near_future['minimum_annual_days'])))}"
         f"〜{_rounded_int(Decimal(str(near_future['maximum_annual_days'])))}日／年です。",
     )
 
@@ -499,7 +584,8 @@ def _evidence(
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
         {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
     ) + comparison_rows + (
-        {"item": "将来気候", "value": "2026〜2034年を期間集計して表示", "kind": "processed_cmip6_api", "source": "Open-Meteo Climate API・CMIP6複数モデルの保存済みプロファイル", "note": "日平均THI 72以上の日数をモデル間の中央値と範囲で示します。ファン台数・投資時期には使いません。"},
+        {"item": "直近の暑熱対象日", "value": "2020〜2025年の年平均97.0〜97.5日", "kind": "official_observation", "source": "気象庁『過去の気象データ検索』千葉（観測点47682）", "note": "日平均THI 72以上。湿度欠測3日を非暑熱日とせず下限・上限で保持しています。"},
+        {"item": "将来気候", "value": "2026〜2034年を観測基準へ補正して期間表示", "kind": "processed_cmip6_api", "source": "Open-Meteo Climate API・CMIP6共通6モデルの保存済みプロファイル", "note": "モデルごとに将来期間−2020〜2025年モデル基準を計算し、気象庁観測基準へ加えます。ファン台数・投資時期には使いません。"},
     )
 
 

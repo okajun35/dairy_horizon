@@ -167,19 +167,27 @@
     <section class="climate-background" aria-labelledby="climate-heading">
       <p class="section-kicker">暑熱期間の背景</p>
       <h2 id="climate-heading">将来の暑熱期間は、運転日数と電力費の背景です</h2>
-      <p class="climate-intro">{{ dashboard.climate_background.region_name_ja }}の保存済みCMIP6複数モデルから、日平均THI {{ dashboard.climate_background.thi_threshold|int }}以上の日数を期間平均しました。特定年の確定予報ではありません。この情報からファン台数や投資年は変更しません。</p>
+      <p class="climate-intro">{{ dashboard.climate_background.region_name_ja }}の気象庁観測を現在相当の基準にし、共通するCMIP6 6モデルごとに「将来期間−2020〜2025年モデル基準」を加えました。日平均THI {{ dashboard.climate_background.thi_threshold|int }}以上の日数であり、特定年の確定予報ではありません。この情報からファン台数や投資年は変更しません。</p>
       <div class="climate-period-grid">
+        <article class="climate-period-card climate-observed-card" data-climate-period="observed_2020_2025">
+          <h3>現在相当（2020〜2025年観測）</h3>
+          <dl>
+            <div><dt>暑熱対策の対象日</dt><dd>{{ dashboard.climate_background.observed_baseline.annual_days_range_ja }}</dd></div>
+          </dl>
+          <p>気象庁「千葉」の年平均。湿度欠測3日を下限・上限として残しています。</p>
+        </article>
         {% for period in dashboard.climate_background.periods %}
           <article class="climate-period-card" data-climate-period="{{ period.key }}">
             <h3>{{ period.start_year }}〜{{ period.end_year }}年</h3>
             <dl>
-              <div><dt>暑熱対策の対象日</dt><dd>{{ period.median_annual_days_ja }}</dd></div>
-              <div><dt>モデル範囲</dt><dd>{{ period.annual_days_range_ja }}</dd></div>
+              <div><dt>観測基準に揃えた中心目安</dt><dd>{{ period.central_days_range_ja }}</dd></div>
+              <div><dt>モデル差を含む範囲</dt><dd>{{ period.full_days_range_ja }}</dd></div>
+              <div><dt>現在比（変化量中央値）</dt><dd>{{ period.median_change_days_ja }}</dd></div>
             </dl>
-            <p>{{ period.model_count }}モデルそれぞれの期間内年平均を比較</p>
+            <p>{{ period.model_count }}モデルを同じモデル名で対応付けて比較。生のCMIP6期間値：中央値{{ period.raw_model_median_annual_days_ja }}、範囲{{ period.raw_model_annual_days_range_ja }}</p>
             <details>
               <summary><strong>この日数で年間電力費を見る</strong></summary>
-              <p>1対象日あたり{{ dashboard.climate_background.operating_hours_per_day|int }}時間、電力量単価・基本料金・インバーター削減率は標準仮定を使用しています。</p>
+              <p>観測基準に揃えた日数と、1対象日あたり{{ dashboard.climate_background.operating_hours_per_day|int }}時間を使用。電力量単価・基本料金・インバーター削減率は標準仮定です。</p>
               <ul class="climate-plan-costs">
                 {% for plan in period.plans %}
                   <li><strong>{{ plan.label_ja }}（{{ plan.additional_fan_count }}台追加）</strong><span>中央値 {{ plan.annual_electricity_median_ja }}／年</span><small>範囲 {{ plan.annual_electricity_range_ja }}／年</small></li>
@@ -189,7 +197,7 @@
           </article>
         {% endfor %}
       </div>
-      <p class="climate-boundary-note">2035年以降は未取得です。日単位データのため、1対象日あたり24時間は全酪連標準例による運転時間仮定であり、時間別の暑さを予測した値ではありません。</p>
+      <p class="climate-boundary-note">中心目安は観測の97.0〜97.5日にモデル変化量の中央値を加え、広い範囲は観測の欠測幅とモデル差の両方を含みます。2035年以降は未取得です。日単位データのため、1対象日あたり24時間は全酪連標準例による運転時間仮定であり、時間別の暑さを予測した値ではありません。</p>
     </section>
 
     <section class="financial-comparison" aria-labelledby="financial-heading">

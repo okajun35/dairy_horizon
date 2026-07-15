@@ -172,10 +172,10 @@ async function main() {
     assertEqual(
       await climateState(evaluate, '2026_2030'),
       JSON.stringify({
-        days: ['96日／年', '82〜103日／年'],
+        days: ['104〜105日／年', '96〜109日／年', '+7日／年'],
         plan: '第1期：小さく始める（5台追加）',
-        medianCost: '中央値 124,706円／年',
-        costRange: '範囲 110,515円〜130,927円／年',
+        medianCost: '中央値 132,839円／年',
+        costRange: '範囲 124,058円〜137,083円／年',
       }),
       '初期のTHI背景と第1期電力費',
     );
@@ -234,10 +234,10 @@ async function main() {
     assertEqual(
       await climateState(evaluate, '2026_2030'),
       JSON.stringify({
-        days: ['96日／年', '82〜103日／年'],
+        days: ['104〜105日／年', '96〜109日／年', '+7日／年'],
         plan: '第1期：小さく始める（3台追加）',
-        medianCost: '中央値 74,824円／年',
-        costRange: '範囲 66,309円〜78,556円／年',
+        medianCost: '中央値 79,703円／年',
+        costRange: '範囲 74,435円〜82,250円／年',
       }),
       '入力変更後のTHI背景と第1期電力費',
     );
