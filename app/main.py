@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from decimal import Decimal, ROUND_HALF_UP
 import os
 from pathlib import Path
 from typing import Any
@@ -13,10 +14,16 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.financial_screening import STANDARD_USEFUL_LIFE_YEARS
+from app.financial_screening import (
+    FinancialPlan,
+    STANDARD_FINANCIAL_ASSUMPTIONS,
+    STANDARD_USEFUL_LIFE_YEARS,
+    calculate_financial_screening,
+)
 from app.navigator import (
     BarnInput,
     CurrentBarnState,
+    FanPlan,
     InputValidationError,
     build_navigation,
     guideline_fan_count,
@@ -52,6 +59,122 @@ def _optional_int(value: str | None, label_ja: str) -> int | None:
         return int(value)
     except ValueError as exc:
         raise InputValidationError(f"{label_ja}は整数で入力してください。") from exc
+
+
+def _format_yen(value: Decimal | None) -> str:
+    if value is None:
+        return "評価対象外"
+    rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return f"{rounded:,.0f}円"
+
+
+def _format_milk_kg_per_cow_day(value: Decimal | None) -> str:
+    if value is None:
+        return "評価対象外"
+    rounded = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{rounded:.2f}kg／頭・日"
+
+
+def _financial_plan_view(plan: FanPlan) -> dict[str, str | int]:
+    result = calculate_financial_screening(
+        FinancialPlan(
+            additional_fan_count=plan.additional_fan_count,
+            newly_covered_cow_count=len(plan.newly_covered_cow_ids),
+        ),
+        STANDARD_FINANCIAL_ASSUMPTIONS,
+    )
+    if result.status == "not_applicable":
+        status_note_ja = "現在の入力では追加投資がないため、回収条件は評価対象外です。"
+    elif result.status == "recovery_impossible":
+        status_note_ja = "現在の標準条件では回収に必要な乳量を計算できません。"
+    else:
+        status_note_ja = "標準仮定による粗い比較です。実際の見積額と夏季乳量差で確認します。"
+    return {
+        "key": plan.key,
+        "label_ja": plan.label_ja,
+        "additional_fan_count": plan.additional_fan_count,
+        "newly_covered_cow_count": len(plan.newly_covered_cow_ids),
+        "incremental_capex_ja": _format_yen(result.incremental_capex_yen),
+        "annual_electricity_ja": _format_yen(
+            result.incremental_annual_electricity_cost_yen
+        ),
+        "break_even_milk_ja": _format_milk_kg_per_cow_day(
+            result.break_even_milk_kg_per_cow_day
+        ),
+        "maximum_affordable_capex_ja": _format_yen(
+            result.maximum_affordable_capex_yen
+        ),
+        "investment_margin_ja": _format_yen(result.investment_margin_yen),
+        "status_note_ja": status_note_ja,
+    }
+
+
+def _financial_comparison(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
+    assumptions = STANDARD_FINANCIAL_ASSUMPTIONS
+    return {
+        "plans": tuple(_financial_plan_view(plan) for plan in plans[1:]),
+        "assumptions": (
+            {
+                "label": "1台あたり設備費",
+                "value": _format_yen(assumptions.installed_cost_yen_per_fan),
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "消費電力",
+                "value": f"{assumptions.power_kw_per_fan}kW／台",
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "運転期間",
+                "value": (
+                    f"{assumptions.operating_hours_per_day}時間／日 × "
+                    f"{assumptions.heat_days_per_year}日／年"
+                ),
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "電力量単価",
+                "value": f"{assumptions.electricity_price_yen_per_kwh}円／kWh",
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "基本料金単価",
+                "value": f"{assumptions.basic_charge_yen_per_kw_month:,}円／kW・月",
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "インバーター削減率",
+                "value": (
+                    f"{(assumptions.inverter_reduction_ratio * 100).quantize(Decimal('1'))}%"
+                ),
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "法定耐用年数",
+                "value": f"{assumptions.useful_life_years}年",
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "変動費率",
+                "value": (
+                    f"{(assumptions.variable_cost_ratio * 100).quantize(Decimal('1'))}%"
+                ),
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "乳価",
+                "value": f"{assumptions.milk_price_yen_per_kg}円／kg",
+                "kind": "industry_guidance",
+            },
+            {
+                "label": "防げる乳量",
+                "value": (
+                    f"{assumptions.avoided_milk_loss_kg_per_cow_day}kg／頭・日"
+                ),
+                "kind": "demo_assumption",
+            },
+        ),
+    }
 
 
 def _evidence(
@@ -131,6 +254,7 @@ def _dashboard(
     return {
         "navigation": navigation,
         "path_comparison": path_comparison,
+        "financial_comparison": _financial_comparison(navigation.plans),
         "viewer_payload": asdict(navigation) | {
             "selected_plan": "first_phase",
             "path_comparison": asdict(path_comparison),

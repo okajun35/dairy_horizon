@@ -34,6 +34,25 @@ label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, s
 .barn-comparison { border: 1px solid #d4ddd2; background: #fff; border-radius: 16px; overflow: hidden; } .comparison-row { display:grid; grid-template-columns:minmax(0, 3fr) minmax(235px, 1fr); } .comparison-row + .comparison-row { border-top: 2px solid #bed0c2; } .barn-panel { padding: 22px; min-height: 440px; } .comparison-barn-panel { background:#f8fbf6; } .state-panel { padding: 24px 22px; border-left: 1px solid #d4ddd2; background: #edf3eb; } .state-panel dl { margin: 18px 0; } .state-panel dl div { display:flex; justify-content:space-between; padding: 12px 0; border-bottom: 1px solid #d3dfd5; } dt { font-size:.9rem; } dd { margin: 0; font-size: 1.25rem; font-weight: 750; } .shortage dd { color: #a44227; } .comparison-state h3 { margin:0; font-size:1.12rem; } .comparison-state dd { color:#276c4d; } .comparison-state > p:last-child { margin:10px 0 0; font-size:.86rem; color:#3e6250; }
 .barn-viewer { min-height: 320px; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #e6eee7, #f7f6ed); } .barn-viewer svg { display:block; width:100%; height:320px; } .barn-viewer .cow, .barn-viewer .fan { cursor:pointer; } .barn-viewer .cow:hover, .barn-viewer .fan:hover { filter: brightness(.78); }
 .legend { display: flex; flex-wrap:wrap; gap: 8px; align-items:center; margin: 12px 0 6px; font-size:.84rem; } .legend span { display:inline-block; width:12px; height:12px; border-radius:50%; margin-left:8px; } .covered { background:#356d8f; } .newly-covered { background:#329265; } .uncovered { background:#d17b32; } .selection-detail { min-height: 1.4em; margin-bottom: 0; font-size:.88rem; color:#456053; }
+.financial-comparison { margin-top:24px; padding:24px; border:1px solid #cfdacb; border-radius:14px; background:#fff; }
+.financial-intro { max-width:850px; color:#496153; }
+.financial-reference-note { padding:10px 12px; border-left:4px solid #8a6c2e; background:#fff8e9; color:#604d28; }
+.financial-grid, .affordable-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; }
+.financial-plan-card { padding:18px; border:2px solid #d7dfd3; border-radius:12px; background:#f8fbf6; }
+.financial-plan-card h3, .affordable-grid h3 { margin:0 0 12px; font-size:1.05rem; }
+.financial-plan-card dl, .affordable-grid dl { margin:0; }
+.financial-plan-card dl div, .affordable-grid dl div { display:flex; justify-content:space-between; gap:16px; padding:9px 0; border-bottom:1px solid #dbe3d8; }
+.financial-plan-card dd, .affordable-grid dd { text-align:right; font-size:1.03rem; color:#276c4d; }
+.financial-plan-card > p { margin:12px 0 0; color:#53685d; font-size:.82rem; }
+.financial-scale-note { margin:14px 0 0; color:#53685d; font-size:.84rem; }
+.financial-details { margin-top:16px; padding:16px; border:1px solid #d7dfd3; border-radius:10px; background:#fafbf7; }
+.financial-details > p { color:#53685d; font-size:.86rem; }
+.affordable-grid section { padding:14px; border-radius:9px; background:#edf3eb; }
+.financial-assumption-list { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0 24px; margin:18px 0; }
+.financial-assumption-list > div { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:3px 12px; padding:9px 0; border-bottom:1px solid #d7dfd3; }
+.financial-assumption-list dd { font-size:.94rem; text-align:right; }
+.financial-assumption-list small { grid-column:1 / -1; }
+.financial-source { margin-bottom:0; }
 .pathway, .next-step, .conditions, .evidence { margin-top: 24px; padding: 24px; border-radius: 14px; background: #fff; border: 1px solid #d7dfd3; } .plan-tabs { display:flex; gap:8px; flex-wrap:wrap; } .plan-tab { background:#e4ece6; color:#234a39; } .plan-tab.active { background:#28684f; color:white; } .plan-summary { margin-top:14px; padding:18px; background:#f5f8f2; border-radius:10px; } .plan-summary h3 { margin:0 0 10px; } .plan-summary dl { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin:0; } .plan-summary dt { color:#587064; font-size:.8rem; } .plan-summary dd { margin:4px 0 0; font-size:1.1rem; }
 .first-phase-control { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-top:16px; padding:14px; border-radius:10px; background:#edf3eb; } .first-phase-control label { min-width:160px; } .first-phase-control label span { display:flex; align-items:center; gap:5px; } .first-phase-control small { flex-basis:100%; color:#496153; }
 .pathway-comparison > p:not(.section-kicker):first-of-type { color:#496153; }
@@ -56,5 +75,5 @@ label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, s
 .pathway-note { margin:18px 0 0; color:#52675b; font-size:.84rem; }
 .next-step { background:#e4f0e8; border-color:#bad4c1; } .conditions { background:#fffdf7; } .evidence { background:#fafbf7; } summary { cursor:pointer; } summary span { color:#5d7065; font-size:.9rem; font-weight:400; } .evidence-table { margin-top:16px; border-top:1px solid #d7dfd3; } .evidence-table article { display:grid; grid-template-columns:1.2fr .75fr .8fr 2fr; gap:12px; padding:12px 0; border-bottom:1px solid #d7dfd3; font-size:.86rem; } .evidence-table small { display:block; color:#5a6a60; margin-top:4px; } .source-kind { color:#28684f; font-family:ui-monospace, monospace; font-size:.75rem; } .formula { margin-top:16px; font-size:.85rem; color:#465a4e; }.error { color:#9d2b1d; }
 @media (max-width: 900px) { .quick-inputs, .candidate-fields { grid-template-columns:repeat(2, minmax(0, 1fr)); } .quick-inputs button { justify-self:start; } }
-@media (max-width: 760px) { main { width:min(100% - 20px, 1180px); padding-top:20px; } .comparison-row, .pathway-grid { grid-template-columns:1fr; } .state-panel { border-left:0; border-top:1px solid #d4ddd2; } .barn-panel { min-height:0; } .plan-summary dl, .evidence-table article { grid-template-columns:1fr 1fr; } }
+@media (max-width: 760px) { main { width:min(100% - 20px, 1180px); padding-top:20px; } .comparison-row, .pathway-grid, .financial-grid, .affordable-grid { grid-template-columns:1fr; } .state-panel { border-left:0; border-top:1px solid #d4ddd2; } .barn-panel { min-height:0; } .plan-summary dl, .evidence-table article { grid-template-columns:1fr 1fr; } }
 @media (max-width: 480px) { .quick-inputs, .candidate-fields, .natural-input > form { grid-template-columns:1fr; } .natural-input > form label { grid-column:auto; } }

@@ -162,6 +162,51 @@
       </div>
     </section>
 
+    <section class="financial-comparison" aria-labelledby="financial-heading">
+      <p class="section-kicker">標準条件での採算確認</p>
+      <h2 id="financial-heading">{% if reference_mode %}参考状態から追加する場合の標準試算{% else %}追加案の費用と回収条件を比べる{% endif %}</h2>
+      <p class="financial-intro">全酪連の7年標準計算例を使った粗い比較です。回収に必要な防止乳量は、新たに風が届くと推計した牛について、暑熱期間中に1日あたりどれだけ乳量低下を防ぐ必要があるかを示します。</p>
+      {% if reference_mode %}<p class="financial-reference-note">参考配置を現在の台数として計算しているため、実際の既存台数を確認すると結果が変わります。</p>{% endif %}
+      <div class="financial-grid">
+        {% for plan in dashboard.financial_comparison.plans %}
+          <article class="financial-plan-card" data-financial-plan="{{ plan.key }}">
+            <h3>{{ plan.label_ja }}</h3>
+            <dl>
+              <div><dt>追加台数</dt><dd>{{ plan.additional_fan_count }}台</dd></div>
+              <div><dt>新たにカバー推計</dt><dd>{{ plan.newly_covered_cow_count }}頭</dd></div>
+              <div><dt>導入費</dt><dd>{{ plan.incremental_capex_ja }}</dd></div>
+              <div><dt>年間電気代</dt><dd>{{ plan.annual_electricity_ja }}{% if plan.additional_fan_count %}／年{% endif %}</dd></div>
+              <div><dt>回収に必要な防止乳量</dt><dd>{{ plan.break_even_milk_ja }}</dd></div>
+            </dl>
+            <p>{{ plan.status_note_ja }}</p>
+          </article>
+        {% endfor %}
+      </div>
+      <p class="financial-scale-note">追加台数と新たにカバーする頭数が同じ比率なら、1頭あたりの回収必要量は同じになります。金額と投資規模は案ごとに異なります。</p>
+      <details class="financial-details">
+        <summary><strong>標準仮定と詳しい採算条件</strong><span> 払える目安と計算条件を確認する</span></summary>
+        <p>単一のおすすめや採算可否を断定するものではありません。設備費と年間電気代は税抜の標準例です。</p>
+        <div class="affordable-grid">
+          {% for plan in dashboard.financial_comparison.plans %}
+            <section aria-label="{{ plan.label_ja }}の詳しい採算条件">
+              <h3>{{ plan.label_ja }}</h3>
+              <dl>
+                <div><dt>この条件で払える目安</dt><dd>{{ plan.maximum_affordable_capex_ja }}</dd></div>
+                <div><dt>見積額との差</dt><dd>{{ plan.investment_margin_ja }}</dd></div>
+              </dl>
+            </section>
+          {% endfor %}
+        </div>
+        <p>「見積額との差」がマイナスなら標準見積が払える目安を上回り、プラスならその範囲内です。実際の採算判定ではなく、見積額と夏季乳量差を確認するための目安です。</p>
+        <dl class="financial-assumption-list">
+          {% for assumption in dashboard.financial_comparison.assumptions %}
+            <div><dt>{{ assumption.label }}</dt><dd>{{ assumption.value }}</dd><small class="source-kind">{{ assumption.kind }}</small></div>
+          {% endfor %}
+        </dl>
+        <p class="financial-source">出典：全酪連 COW BELL No.178「暑熱対策の設備投資を考える」の標準計算例。防げる乳量3.0kg／頭・日は効果保証ではなく、払える目安を比較するためのデモ仮定です。法定耐用年数7年は年割りに使い、故障年や交換年を意味しません。</p>
+      </details>
+    </section>
+
     {% if reference_mode %}
     <section class="pathway reference-pathway" aria-labelledby="pathway-heading">
       <p class="section-kicker">年度別経路</p>

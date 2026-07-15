@@ -95,6 +95,13 @@ async function comparisonState(evaluate) {
   })`);
 }
 
+async function financialState(evaluate, planKey) {
+  return evaluate(`JSON.stringify(Array.from(
+    document.querySelector('[data-financial-plan="${planKey}"]').querySelectorAll('dd'),
+    (item) => item.textContent.trim(),
+  ))`);
+}
+
 async function main() {
   const client = await openClient();
   const { socket, send, evaluate } = client;
@@ -131,6 +138,16 @@ async function main() {
       }),
       '初期の第1期',
     );
+    assertEqual(
+      await financialState(evaluate, 'first_phase'),
+      JSON.stringify(['5台', '15頭', '1,100,000円', '147,840円／年', '3.14kg／頭・日']),
+      '初期の第1期財務',
+    );
+    assertEqual(
+      await financialState(evaluate, 'full_coverage'),
+      JSON.stringify(['10台', '30頭', '2,200,000円', '295,680円／年', '3.14kg／頭・日']),
+      '初期の頭数目安財務',
+    );
 
     await evaluate(`document.querySelector('[data-plan="full_coverage"]').click()`);
     assertEqual(
@@ -165,6 +182,11 @@ async function main() {
       }),
       '入力変更後の第1期',
     );
+    assertEqual(
+      await financialState(evaluate, 'first_phase'),
+      JSON.stringify(['3台', '9頭', '660,000円', '88,704円／年', '3.14kg／頭・日']),
+      '入力変更後の第1期財務',
+    );
 
     await evaluate(`document.querySelector('[data-plan="full_coverage"]').click()`);
     assertEqual(
@@ -178,6 +200,11 @@ async function main() {
         cumulative: '78頭年',
       }),
       '入力変更後の全数案',
+    );
+    assertEqual(
+      await financialState(evaluate, 'full_coverage'),
+      JSON.stringify(['8台', '24頭', '1,760,000円', '236,544円／年', '3.14kg／頭・日']),
+      '入力変更後の計画台数財務',
     );
 
     const referenceUrl = `${APP_URL}?region_ja=%E5%8D%83%E8%91%89%E5%B8%82&lactating_cows=100&lane_count=4&existing_fan_count=20&reference_mode=true`;
