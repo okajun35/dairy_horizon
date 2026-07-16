@@ -455,6 +455,29 @@
           <p class="annual-snapshot-note">第1期{{ dashboard.two_horizon_financial.additional_fan_count }}台と新規カバー{{ dashboard.two_horizon_financial.covered_cow_count }}頭は変えず、THI対象日数だけを期間別に反映した二つの年間スナップショットです。年間限界利益効果は、夏季の防止乳量差・実現乳価・変動費率から計算します。防止乳量差は <span class="source-kind">{{ dashboard.financial_inputs.avoided_milk_loss_kg_per_cow_day.source_kind }}</span> です。年間の差引は、年間限界利益効果から電気代と設備費の年換算を引いた比較値です。農場全体のキャッシュフローではありません。初期投資の支払時期、借入、税、農場全体の費用は含みません。5年間の累積ROIではありません。</p>
         </section>
       {% endif %}
+      {% if dashboard.farm_sales_context.is_available %}
+        <section class="farm-sales-context" aria-labelledby="farm-sales-context-heading">
+          <p class="section-kicker">農場全体との大きさ比較</p>
+          <h3 id="farm-sales-context-heading">売上規模の背景</h3>
+          <div class="annual-snapshot-grid">
+            <article>
+              <h4>現在</h4>
+              <dl>
+                <div><dt>現在の年間出荷乳量</dt><dd>{{ dashboard.farm_sales_context.current_annual_shipped_milk_ja }}</dd></div>
+                <div><dt>現在の年間乳代売上</dt><dd>{{ dashboard.farm_sales_context.current_annual_milk_sales_ja }}</dd></div>
+              </dl>
+            </article>
+            <article>
+              <h4>5年後</h4>
+              <dl>
+                <div><dt>5年後の年間出荷乳量</dt><dd>{{ dashboard.farm_sales_context.future_annual_shipped_milk_ja }}</dd></div>
+                <div><dt>5年後の年間乳代売上</dt><dd>{{ dashboard.farm_sales_context.future_annual_milk_sales_ja }}</dd></div>
+              </dl>
+            </article>
+          </div>
+          <p class="annual-snapshot-note">利用者が入力した年間出荷乳量と実現乳価の積です。頭数から乳量を推定せず、搾乳日数や365日を掛けません。この売上規模は農場全体の背景表示であり、暑熱対策単体の採算判定には使用しません。</p>
+        </section>
+      {% endif %}
       <details class="financial-details">
         <summary><strong>標準仮定と詳しい採算条件</strong><span> 払える目安と計算条件を確認する</span></summary>
         <p>単一のおすすめや採算可否を断定するものではありません。{% if operating.is_user_input %}平均運転時間以外は標準例です。{% else %}設備費と年間電気代は標準例です。{% endif %}金額は税抜です。</p>

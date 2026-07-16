@@ -38,6 +38,11 @@ from app.financial_screening import (
     calculate_financial_screening,
 )
 from app.equipment_branches import build_equipment_branches
+from app.farm_sales_context import (
+    FarmSalesContextInput,
+    FarmSalesContextInputError,
+    calculate_farm_sales_context,
+)
 from app.navigator import (
     BarnInput,
     CurrentBarnState,
@@ -170,6 +175,13 @@ def _format_kg(value: Decimal | None) -> str:
         return "評価対象外"
     rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return f"{rounded:,.0f}kg"
+
+
+def _format_annual_kg(value: Decimal | None) -> str:
+    if value is None:
+        return "未入力"
+    rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return f"{rounded:,.0f}kg／年"
 
 
 def _rounded_int(value: Decimal) -> int:
@@ -858,6 +870,8 @@ def _evidence(
     reference_mode: bool = False,
     future_target_cow_count: int | None = None,
     confirmed_covered_cow_count: int | None = None,
+    current_annual_shipped_milk_kg: Decimal | None = None,
+    future_annual_shipped_milk_kg: Decimal | None = None,
 ) -> tuple[dict[str, str], ...]:
     reference_uses_guideline = (
         inputs.existing_fan_count == current_state.guideline_fan_count
@@ -923,7 +937,35 @@ def _evidence(
         if confirmed_covered_cow_count is not None
         else ()
     )
-    return input_rows + future_rows + measurement_rows + (
+    shipment_rows = tuple(
+        row
+        for row in (
+            (
+                {
+                    "item": "現在の年間出荷乳量",
+                    "value": _format_annual_kg(current_annual_shipped_milk_kg),
+                    "kind": "user_input",
+                    "source": "今回の入力",
+                    "note": "実現乳価との積を売上規模の背景にだけ使用します。",
+                }
+                if current_annual_shipped_milk_kg is not None
+                else None
+            ),
+            (
+                {
+                    "item": "5年後の年間出荷乳量",
+                    "value": _format_annual_kg(future_annual_shipped_milk_kg),
+                    "kind": "user_input",
+                    "source": "今回の入力",
+                    "note": "現在値や頭数から推定せず、直接入力された場合だけ表示します。",
+                }
+                if future_annual_shipped_milk_kg is not None
+                else None
+            ),
+        )
+        if row is not None
+    )
+    return input_rows + future_rows + measurement_rows + shipment_rows + (
         {"item": "ファンのカバー目安", "value": "3頭／台・牛体付近2m/s以上", "kind": current_state.coverage_basis_kind, "source": "全酪連 COW BELL No.178『暑熱対策の設備投資を考える』pp.6-8", "note": "実際の間隔・風量・設置位置で必ず確認します。"},
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
         {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
@@ -954,6 +996,8 @@ def _dashboard(
     avoided_milk_loss_kg_per_cow_day: Decimal | None = None,
     milk_price_yen_per_kg: Decimal | None = None,
     electricity_price_yen_per_kwh: Decimal | None = None,
+    current_annual_shipped_milk_kg: Decimal | None = None,
+    future_annual_shipped_milk_kg: Decimal | None = None,
 ) -> dict[str, Any]:
     inputs = BarnInput(
         lactating_cows=lactating_cows,
@@ -1028,6 +1072,13 @@ def _dashboard(
             else STANDARD_FINANCIAL_ASSUMPTIONS.electricity_price_yen_per_kwh
         ),
     )
+    farm_sales_context = calculate_farm_sales_context(
+        FarmSalesContextInput(
+            current_annual_shipped_milk_kg=current_annual_shipped_milk_kg,
+            future_annual_shipped_milk_kg=future_annual_shipped_milk_kg,
+            milk_price_yen_per_kg=financial_assumptions.milk_price_yen_per_kg,
+        )
+    )
     financial_comparison = _financial_comparison(
         navigation.plans,
         financial_assumptions,
@@ -1095,6 +1146,38 @@ def _dashboard(
                 "is_user_input": electricity_price_yen_per_kwh is not None,
             },
         },
+        "farm_sales_context": {
+            "is_available": (
+                current_annual_shipped_milk_kg is not None
+                or future_annual_shipped_milk_kg is not None
+            ),
+            "current_annual_shipped_milk_kg": (
+                float(current_annual_shipped_milk_kg)
+                if current_annual_shipped_milk_kg is not None
+                else None
+            ),
+            "current_annual_shipped_milk_ja": _format_annual_kg(
+                current_annual_shipped_milk_kg
+            ),
+            "current_annual_milk_sales_ja": (
+                _format_yen(farm_sales_context.current_annual_milk_sales_yen)
+                if farm_sales_context.current_annual_milk_sales_yen is not None
+                else "未評価"
+            ),
+            "future_annual_shipped_milk_kg": (
+                float(future_annual_shipped_milk_kg)
+                if future_annual_shipped_milk_kg is not None
+                else None
+            ),
+            "future_annual_shipped_milk_ja": _format_annual_kg(
+                future_annual_shipped_milk_kg
+            ),
+            "future_annual_milk_sales_ja": (
+                _format_yen(farm_sales_context.future_annual_milk_sales_yen)
+                if farm_sales_context.future_annual_milk_sales_yen is not None
+                else "未評価"
+            ),
+        },
         "two_horizon_screening": two_horizon_screening,
         "equipment_branches": _equipment_branch_views(
             standard_fan_count=navigation.plans[1].additional_fan_count,
@@ -1132,6 +1215,8 @@ def _dashboard(
             reference_mode=reference_mode,
             future_target_cow_count=future_target_cow_count,
             confirmed_covered_cow_count=confirmed_covered_cow_count,
+            current_annual_shipped_milk_kg=current_annual_shipped_milk_kg,
+            future_annual_shipped_milk_kg=future_annual_shipped_milk_kg,
         ),
         "input_mode": "guideline_reference" if reference_mode else "confirmed",
     }
@@ -1201,6 +1286,8 @@ def check(
     avoided_milk_loss_kg_per_cow_day: str | None = Query(None),
     milk_price_yen_per_kg: str | None = Query(None),
     electricity_price_yen_per_kwh: str | None = Query(None),
+    current_annual_shipped_milk_kg: str | None = Query(None),
+    future_annual_shipped_milk_kg: str | None = Query(None),
 ) -> HTMLResponse:
     try:
         region_ja = SUPPORTED_REGION_JA
@@ -1214,6 +1301,12 @@ def check(
         )
         parsed_electricity_price = _optional_non_negative_decimal(
             electricity_price_yen_per_kwh, "電力量単価"
+        )
+        parsed_current_shipment = _optional_non_negative_decimal(
+            current_annual_shipped_milk_kg, "現在の年間出荷乳量"
+        )
+        parsed_future_shipment = _optional_non_negative_decimal(
+            future_annual_shipped_milk_kg, "5年後の年間出荷乳量"
         )
         dashboard = _dashboard(
             lactating_cows,
@@ -1230,9 +1323,15 @@ def check(
             parsed_avoided_milk,
             parsed_milk_price,
             parsed_electricity_price,
+            parsed_current_shipment,
+            parsed_future_shipment,
         )
         error = None
-    except (AdaptationInputError, InputValidationError) as exc:
+    except (
+        AdaptationInputError,
+        FarmSalesContextInputError,
+        InputValidationError,
+    ) as exc:
         dashboard = _dashboard(60, 2, 10, None, 2026, None)
         error = str(exc)
     return templates.TemplateResponse(
@@ -1265,6 +1364,8 @@ def explain_screening_result(
     avoided_milk_loss_kg_per_cow_day: str | None = Form(None),
     milk_price_yen_per_kg: str | None = Form(None),
     electricity_price_yen_per_kwh: str | None = Form(None),
+    current_annual_shipped_milk_kg: str | None = Form(None),
+    future_annual_shipped_milk_kg: str | None = Form(None),
     explainer: OpenAIResultExplainer = Depends(get_result_explainer),
 ) -> HTMLResponse:
     region_ja = SUPPORTED_REGION_JA
@@ -1281,6 +1382,12 @@ def explain_screening_result(
     parsed_electricity_price = _optional_non_negative_decimal(
         electricity_price_yen_per_kwh, "電力量単価"
     )
+    parsed_current_shipment = _optional_non_negative_decimal(
+        current_annual_shipped_milk_kg, "現在の年間出荷乳量"
+    )
+    parsed_future_shipment = _optional_non_negative_decimal(
+        future_annual_shipped_milk_kg, "5年後の年間出荷乳量"
+    )
     dashboard = _dashboard(
         lactating_cows,
         lane_count,
@@ -1296,6 +1403,8 @@ def explain_screening_result(
         parsed_avoided_milk,
         parsed_milk_price,
         parsed_electricity_price,
+        parsed_current_shipment,
+        parsed_future_shipment,
     )
     payload = _result_explanation_payload(dashboard)
     api_failed = False
