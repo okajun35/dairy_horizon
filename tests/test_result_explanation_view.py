@@ -75,6 +75,18 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertIn("小さく始める案と全体案を条件で比べます", response.text)
         self.assertIn("次に確認する一件</dt><dd>実際の設備見積額", response.text)
         self.assertIn("ai_explanation", response.text)
+        self.assertIn(
+            '<form class="operating-hours-control" method="get" action="/">',
+            response.text,
+        )
+        self.assertIn(
+            '<form class="first-phase-control" method="get" action="/">',
+            response.text,
+        )
+        self.assertIn(
+            '<form class="quick-inputs" method="get" action="/">',
+            response.text,
+        )
 
     def test_api_failure_uses_deterministic_fallback(self) -> None:
         class FailingExplainer:

@@ -65,7 +65,7 @@
       {% endif %}
     </section>
 
-    <form class="quick-inputs" method="get">
+    <form class="quick-inputs" method="get" action="/">
       <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
       {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
       {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
@@ -124,7 +124,7 @@
               <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
             {% endfor %}
           </div>
-          <form class="first-phase-control" method="get">
+          <form class="first-phase-control" method="get" action="/">
             <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
             <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
             <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
@@ -171,7 +171,7 @@
       <p class="section-kicker">暑熱期間の背景</p>
       <h2 id="climate-heading">将来の暑熱期間は、運転日数と電力費の背景です</h2>
       <p class="climate-intro">{{ dashboard.climate_background.region_name_ja }}の気象庁観測を現在相当の基準にし、共通するCMIP6 6モデルごとに「将来期間−2020〜2025年モデル基準」を加えました。日平均THI {{ dashboard.climate_background.thi_threshold|int }}以上の日数であり、特定年の確定予報ではありません。この情報からファン台数や投資年は変更しません。</p>
-      <form class="operating-hours-control" method="get">
+      <form class="operating-hours-control" method="get" action="/">
         <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
         <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
         <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
