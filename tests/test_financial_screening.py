@@ -107,6 +107,24 @@ class FinancialScreeningTest(unittest.TestCase):
         self.assertEqual(result.status, "recovery_impossible")
         self.assertEqual(result.reason, "zero_milk_price")
         self.assertIsNone(result.break_even_milk_kg_per_cow_day)
+
+    def test_zero_operating_hours_keeps_basic_charge_without_claiming_recovery(self) -> None:
+        result = calculate_financial_screening(
+            FinancialPlan(additional_fan_count=5, newly_covered_cow_count=15),
+            replace(
+                STANDARD_FINANCIAL_ASSUMPTIONS,
+                operating_hours_per_day=Decimal("0"),
+            ),
+        )
+
+        self.assertEqual(result.status, "recovery_impossible")
+        self.assertEqual(result.reason, "zero_operating_hours")
+        self.assertEqual(result.annual_energy_charge_yen, Decimal("0.000"))
+        self.assertEqual(result.annual_basic_charge_yen, Decimal("31200.0"))
+        self.assertEqual(
+            result.incremental_annual_electricity_cost_yen, Decimal("31200.000")
+        )
+        self.assertIsNone(result.break_even_milk_kg_per_cow_day)
         self.assertEqual(result.maximum_affordable_capex_yen, Decimal("0"))
         self.assertIsNone(result.investment_margin_yen)
 

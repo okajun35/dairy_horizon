@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, replace
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import os
 from pathlib import Path
 from typing import Any
@@ -26,6 +26,7 @@ from app.climate_profile import (
     summarize_thi_days,
 )
 from app.financial_screening import (
+    FinancialAssumptions,
     FinancialPlan,
     STANDARD_FINANCIAL_ASSUMPTIONS,
     STANDARD_USEFUL_LIFE_YEARS,
@@ -103,6 +104,27 @@ def _optional_int(value: str | None, label_ja: str) -> int | None:
         raise InputValidationError(f"{label_ja}は整数で入力してください。") from exc
 
 
+def _optional_operating_hours(value: str | None) -> Decimal | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        hours = Decimal(value)
+    except InvalidOperation as exc:
+        raise InputValidationError(
+            "運転時間は0〜24時間で入力してください。"
+        ) from exc
+    if not hours.is_finite() or hours < 0 or hours > 24:
+        raise InputValidationError("運転時間は0〜24時間で入力してください。")
+    return hours
+
+
+def _format_decimal(value: Decimal) -> str:
+    formatted = format(value, "f")
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted
+
+
 def _format_yen(value: Decimal | None) -> str:
     if value is None:
         return "評価対象外"
@@ -124,6 +146,7 @@ def _rounded_int(value: Decimal) -> int:
 def _climate_plan_view(
     plan: FanPlan,
     summary: ObservationAnchoredClimateSummary,
+    operating_hours_per_day: Decimal,
 ) -> dict[str, Any]:
     financial_plan = FinancialPlan(
         additional_fan_count=plan.additional_fan_count,
@@ -132,7 +155,11 @@ def _climate_plan_view(
     results = {
         key: calculate_financial_screening(
             financial_plan,
-            replace(STANDARD_FINANCIAL_ASSUMPTIONS, heat_days_per_year=days),
+            replace(
+                STANDARD_FINANCIAL_ASSUMPTIONS,
+                heat_days_per_year=days,
+                operating_hours_per_day=operating_hours_per_day,
+            ),
         )
         for key, days in (
             ("minimum", summary.minimum_annual_days),
@@ -184,8 +211,9 @@ def _climate_period_view(
     summary: ObservationAnchoredClimateSummary,
     raw_model_summary: ClimatePeriodSummary,
     plans: tuple[FanPlan, ...],
+    operating_hours_per_day: Decimal,
 ) -> dict[str, Any]:
-    hours_per_day = STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
+    hours_per_day = operating_hours_per_day
     return {
         "key": f"{summary.start_year}_{summary.end_year}",
         "start_year": summary.start_year,
@@ -227,11 +255,17 @@ def _climate_period_view(
             f"{_rounded_int(raw_model_summary.minimum_annual_days)}"
             f"〜{_rounded_int(raw_model_summary.maximum_annual_days)}日／年"
         ),
-        "plans": tuple(_climate_plan_view(plan, summary) for plan in plans[1:]),
+        "plans": tuple(
+            _climate_plan_view(plan, summary, operating_hours_per_day)
+            for plan in plans[1:]
+        ),
     }
 
 
-def _climate_background(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
+def _climate_background(
+    plans: tuple[FanPlan, ...],
+    operating_hours_per_day: Decimal,
+) -> dict[str, Any]:
     observed = load_observed_thi_baseline(OBSERVED_THI_BASELINE_PATH)
     model_baseline = summarize_thi_days(
         load_climate_profile(BASELINE_CLIMATE_PROFILE_PATH), 2020, 2025
@@ -256,9 +290,8 @@ def _climate_background(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
         "available": True,
         "region_name_ja": observed.region_name_ja,
         "thi_threshold": float(observed.thi_threshold),
-        "operating_hours_per_day": float(
-            STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
-        ),
+        "operating_hours_per_day": float(operating_hours_per_day),
+        "operating_hours_per_day_ja": _format_decimal(operating_hours_per_day),
         "observed_baseline": {
             "start_year": observed.start_year,
             "end_year": observed.end_year,
@@ -272,7 +305,7 @@ def _climate_background(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
             "source_dataset": observed.source_dataset,
         },
         "periods": tuple(
-            _climate_period_view(adjusted, raw, plans)
+            _climate_period_view(adjusted, raw, plans, operating_hours_per_day)
             for adjusted, raw in zip(
                 adjusted_summaries, raw_future_summaries, strict=True
             )
@@ -282,20 +315,32 @@ def _climate_background(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
     }
 
 
-def _financial_plan_view(plan: FanPlan) -> dict[str, Any]:
+def _financial_plan_view(
+    plan: FanPlan,
+    assumptions: FinancialAssumptions,
+    operating_hours_source_kind: str,
+) -> dict[str, Any]:
     result = calculate_financial_screening(
         FinancialPlan(
             additional_fan_count=plan.additional_fan_count,
             newly_covered_cow_count=len(plan.newly_covered_cow_ids),
         ),
-        STANDARD_FINANCIAL_ASSUMPTIONS,
+        assumptions,
     )
     if result.status == "not_applicable":
         status_note_ja = "現在の入力では追加投資がないため、回収条件は評価対象外です。"
+    elif result.reason == "zero_operating_hours":
+        status_note_ja = (
+            "運転時間が0時間のため、基本料金だけを表示し、回収条件は計算しません。"
+        )
     elif result.status == "recovery_impossible":
         status_note_ja = "現在の標準条件では回収に必要な乳量を計算できません。"
     else:
-        status_note_ja = "標準仮定による粗い比較です。実際の見積額と夏季乳量差で確認します。"
+        status_note_ja = (
+            "入力した運転時間とその他の標準仮定による粗い比較です。"
+            if operating_hours_source_kind == "user_input"
+            else "標準仮定による粗い比較です。"
+        ) + "実際の見積額と夏季乳量差で確認します。"
     return {
         "key": plan.key,
         "label_ja": plan.label_ja,
@@ -325,10 +370,22 @@ def _financial_plan_view(plan: FanPlan) -> dict[str, Any]:
     }
 
 
-def _financial_comparison(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
-    assumptions = STANDARD_FINANCIAL_ASSUMPTIONS
+def _financial_comparison(
+    plans: tuple[FanPlan, ...],
+    operating_hours_per_day: Decimal,
+    operating_hours_source_kind: str,
+) -> dict[str, Any]:
+    assumptions = replace(
+        STANDARD_FINANCIAL_ASSUMPTIONS,
+        operating_hours_per_day=operating_hours_per_day,
+    )
     return {
-        "plans": tuple(_financial_plan_view(plan) for plan in plans[1:]),
+        "plans": tuple(
+            _financial_plan_view(
+                plan, assumptions, operating_hours_source_kind
+            )
+            for plan in plans[1:]
+        ),
         "assumptions": (
             {
                 "label": "1台あたり設備費",
@@ -341,11 +398,13 @@ def _financial_comparison(plans: tuple[FanPlan, ...]) -> dict[str, Any]:
                 "kind": "industry_guidance",
             },
             {
-                "label": "運転期間",
-                "value": (
-                    f"{assumptions.operating_hours_per_day}時間／日 × "
-                    f"{assumptions.heat_days_per_year}日／年"
-                ),
+                "label": "暑い日の平均運転時間",
+                "value": f"{_format_decimal(assumptions.operating_hours_per_day)}時間／日",
+                "kind": operating_hours_source_kind,
+            },
+            {
+                "label": "標準の暑熱対策日数",
+                "value": f"{_format_decimal(assumptions.heat_days_per_year)}日／年",
                 "kind": "industry_guidance",
             },
             {
@@ -461,6 +520,10 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
             "lane_count": navigation.inputs.lane_count,
             "existing_fan_count": navigation.inputs.existing_fan_count,
             "reference_mode": dashboard["input_mode"] == "guideline_reference",
+            "operating_hours_per_day": dashboard["operating_hours"]["value"],
+            "operating_hours_source_kind": dashboard["operating_hours"][
+                "source_kind"
+            ],
         },
         "current": {
             "guideline_fan_count": current.guideline_fan_count,
@@ -511,6 +574,7 @@ def _result_facts_ja(payload: dict[str, Any]) -> tuple[str, ...]:
     first_phase = payload["plans"][0]
     observed = payload["climate"]["observed_baseline"]
     near_future = payload["climate"]["periods"][0]
+    operating_hours = Decimal(str(payload["input"]["operating_hours_per_day"]))
     if first_phase["additional_fan_count"]:
         plan_fact = (
             f"第1期は{first_phase['additional_fan_count']}台追加で"
@@ -526,6 +590,7 @@ def _result_facts_ja(payload: dict[str, Any]) -> tuple[str, ...]:
         f"日平均THI {payload['climate']['thi_threshold']:.0f}以上の日数は、"
         f"現在相当は{_rounded_int(Decimal(str(observed['lower_annual_days'])))}"
         f"〜{_rounded_int(Decimal(str(observed['upper_annual_days'])))}日／年です。",
+        f"暑い日の平均運転時間は{_format_decimal(operating_hours)}時間／日です。",
         f"{near_future['start_year']}〜{near_future['end_year']}年の暑熱対象日は"
         f"中心目安{_rounded_int(Decimal(str(near_future['central_lower_days'])))}"
         f"〜{_rounded_int(Decimal(str(near_future['central_upper_days'])))}日、"
@@ -538,6 +603,8 @@ def _evidence(
     inputs: BarnInput,
     current_state: CurrentBarnState,
     first_phase_fan_count: int,
+    operating_hours_per_day: Decimal,
+    operating_hours_source_kind: str,
     *,
     reference_mode: bool = False,
 ) -> tuple[dict[str, str], ...]:
@@ -583,6 +650,7 @@ def _evidence(
         {"item": "ファンのカバー目安", "value": "3頭／台・牛体付近2m/s以上", "kind": current_state.coverage_basis_kind, "source": "全酪連 COW BELL No.178『暑熱対策の設備投資を考える』pp.6-8", "note": "実際の間隔・風量・設置位置で必ず確認します。"},
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
         {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
+        {"item": "暑い日の平均運転時間", "value": f"{_format_decimal(operating_hours_per_day)}時間／日", "kind": operating_hours_source_kind, "source": "利用者が結果画面で入力" if operating_hours_source_kind == "user_input" else "全酪連標準計算例", "note": "電力量と回収条件に使用します。THI対象日数、ファン台数、設備費、投資年は変更しません。"},
     ) + comparison_rows + (
         {"item": "直近の暑熱対象日", "value": "2020〜2025年の年平均97.0〜97.5日", "kind": "official_observation", "source": "気象庁『過去の気象データ検索』千葉（観測点47682）", "note": "日平均THI 72以上。湿度欠測3日を非暑熱日とせず下限・上限で保持しています。"},
         {"item": "将来気候", "value": "2026〜2034年を観測基準へ補正して期間表示", "kind": "processed_cmip6_api", "source": "Open-Meteo Climate API・CMIP6共通6モデルの保存済みプロファイル", "note": "モデルごとに将来期間−2020〜2025年モデル基準を計算し、気象庁観測基準へ加えます。ファン台数・投資時期には使いません。"},
@@ -598,6 +666,7 @@ def _dashboard(
     planned_fan_count: int | None = None,
     region_ja: str = SUPPORTED_REGION_JA,
     reference_mode: bool = False,
+    operating_hours_per_day: Decimal | None = None,
 ) -> dict[str, Any]:
     inputs = BarnInput(
         lactating_cows=lactating_cows,
@@ -609,11 +678,32 @@ def _dashboard(
     )
     navigation = build_navigation(inputs)
     path_comparison = build_path_comparison(inputs, investment_year=investment_year)
+    hours_were_entered = operating_hours_per_day is not None
+    effective_operating_hours = (
+        operating_hours_per_day
+        if operating_hours_per_day is not None
+        else STANDARD_FINANCIAL_ASSUMPTIONS.operating_hours_per_day
+    )
+    operating_hours_source_kind = (
+        "user_input" if hours_were_entered else "industry_guidance"
+    )
     return {
         "navigation": navigation,
         "path_comparison": path_comparison,
-        "financial_comparison": _financial_comparison(navigation.plans),
-        "climate_background": _climate_background(navigation.plans),
+        "financial_comparison": _financial_comparison(
+            navigation.plans,
+            effective_operating_hours,
+            operating_hours_source_kind,
+        ),
+        "climate_background": _climate_background(
+            navigation.plans, effective_operating_hours
+        ),
+        "operating_hours": {
+            "value": float(effective_operating_hours),
+            "value_ja": _format_decimal(effective_operating_hours),
+            "source_kind": operating_hours_source_kind,
+            "is_user_input": hours_were_entered,
+        },
         "viewer_payload": asdict(navigation) | {
             "selected_plan": "first_phase",
             "path_comparison": asdict(path_comparison),
@@ -623,6 +713,8 @@ def _dashboard(
             inputs,
             navigation.current_state,
             navigation.plans[1].additional_fan_count,
+            effective_operating_hours,
+            operating_hours_source_kind,
             reference_mode=reference_mode,
         ),
         "input_mode": "guideline_reference" if reference_mode else "confirmed",
@@ -673,12 +765,14 @@ def index(
     first_phase_fan_count: int | None = Query(None, ge=0),
     investment_year: int = Query(2026, ge=2026, le=2030),
     planned_fan_count: str | None = Query(None),
+    operating_hours_per_day: str | None = Query(None),
     region_ja: str = Query(SUPPORTED_REGION_JA),
     reference_mode: bool = Query(False),
 ) -> HTMLResponse:
     try:
         region_ja = SUPPORTED_REGION_JA
         parsed_planned_fan_count = _optional_int(planned_fan_count, "今回の計画総台数")
+        parsed_operating_hours = _optional_operating_hours(operating_hours_per_day)
         dashboard = _dashboard(
             lactating_cows,
             lane_count,
@@ -688,6 +782,7 @@ def index(
             parsed_planned_fan_count,
             region_ja,
             reference_mode,
+            parsed_operating_hours,
         )
         error = None
     except InputValidationError as exc:
@@ -715,6 +810,7 @@ def explain_screening_result(
     first_phase_fan_count: int | None = Form(None),
     investment_year: int = Form(...),
     planned_fan_count: str | None = Form(None),
+    operating_hours_per_day: str | None = Form(None),
     region_ja: str = Form(SUPPORTED_REGION_JA),
     reference_mode: bool = Form(False),
     explainer: OpenAIResultExplainer = Depends(get_result_explainer),
@@ -723,6 +819,7 @@ def explain_screening_result(
     parsed_planned_fan_count = _optional_int(
         planned_fan_count, "今回の計画総台数"
     )
+    parsed_operating_hours = _optional_operating_hours(operating_hours_per_day)
     dashboard = _dashboard(
         lactating_cows,
         lane_count,
@@ -732,6 +829,7 @@ def explain_screening_result(
         parsed_planned_fan_count,
         region_ja,
         reference_mode,
+        parsed_operating_hours,
     )
     payload = _result_explanation_payload(dashboard)
     api_failed = False

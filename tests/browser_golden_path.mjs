@@ -185,6 +185,27 @@ async function main() {
       '説明生成は利用者操作で開始',
     );
 
+    await evaluate(`
+      document.querySelector('.operating-hours-control [name="operating_hours_per_day"]').value = '12';
+      document.querySelector('.operating-hours-control button[type="submit"]').click();
+    `);
+    await waitForPage(evaluate, 'operating_hours_per_day=12');
+    assertEqual(
+      await financialState(evaluate, 'first_phase'),
+      JSON.stringify(['5台', '15頭', '1,100,000円', '89,520円／年', '2.54kg／頭・日']),
+      '運転時間変更後の第1期財務',
+    );
+    assertEqual(
+      await climateState(evaluate, '2026_2030'),
+      JSON.stringify({
+        days: ['104〜105日／年', '96〜109日／年', '+7日／年'],
+        plan: '第1期：小さく始める（5台追加）',
+        medianCost: '中央値 82,019円／年',
+        costRange: '範囲 77,629円〜84,142円／年',
+      }),
+      '運転時間変更後のTHI背景と第1期電力費',
+    );
+
     await evaluate(`document.querySelector('[data-plan="full_coverage"]').click()`);
     assertEqual(
       await comparisonState(evaluate),
@@ -228,7 +249,7 @@ async function main() {
     );
     assertEqual(
       await financialState(evaluate, 'first_phase'),
-      JSON.stringify(['3台', '9頭', '660,000円', '88,704円／年', '3.14kg／頭・日']),
+      JSON.stringify(['3台', '9頭', '660,000円', '53,712円／年', '2.54kg／頭・日']),
       '入力変更後の第1期財務',
     );
     assertEqual(
@@ -236,8 +257,8 @@ async function main() {
       JSON.stringify({
         days: ['104〜105日／年', '96〜109日／年', '+7日／年'],
         plan: '第1期：小さく始める（3台追加）',
-        medianCost: '中央値 79,703円／年',
-        costRange: '範囲 74,435円〜82,250円／年',
+        medianCost: '中央値 49,212円／年',
+        costRange: '範囲 46,578円〜50,485円／年',
       }),
       '入力変更後のTHI背景と第1期電力費',
     );
@@ -261,7 +282,7 @@ async function main() {
     );
     assertEqual(
       await financialState(evaluate, 'full_coverage'),
-      JSON.stringify(['8台', '24頭', '1,760,000円', '236,544円／年', '3.14kg／頭・日']),
+      JSON.stringify(['8台', '24頭', '1,760,000円', '143,232円／年', '2.54kg／頭・日']),
       '入力変更後の計画台数財務',
     );
 

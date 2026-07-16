@@ -21,6 +21,7 @@ FinancialReason = Literal[
     "zero_milk_price",
     "zero_covered_cows",
     "zero_heat_days",
+    "zero_operating_hours",
 ]
 
 
@@ -176,6 +177,8 @@ def calculate_financial_screening(
         impossible_reason = "zero_covered_cows"
     elif assumptions.heat_days_per_year == ZERO:
         impossible_reason = "zero_heat_days"
+    elif assumptions.operating_hours_per_day == ZERO:
+        impossible_reason = "zero_operating_hours"
 
     if impossible_reason is not None:
         return FinancialScreeningResult(

@@ -61,6 +61,37 @@ class FinancialScreeningViewTest(unittest.TestCase):
         self.assertIn("導入費</dt><dd>1,760,000円", planned)
         self.assertIn("年間電気代</dt><dd>236,544円", planned)
 
+    def test_user_operating_hours_update_cost_and_recovery_but_not_capex(self) -> None:
+        response = TestClient(app).get("/?operating_hours_per_day=12")
+
+        self.assertEqual(response.status_code, 200)
+        first_phase = _financial_card(response.text, "first_phase")
+        self.assertIn("導入費</dt><dd>1,100,000円", first_phase)
+        self.assertIn("年間電気代</dt><dd>89,520円", first_phase)
+        self.assertIn("回収に必要な防止乳量</dt><dd>2.54kg／頭・日", first_phase)
+        self.assertIn("暑い日の平均運転時間", response.text)
+        self.assertIn('name="operating_hours_per_day"', response.text)
+        self.assertIn('value="12"', response.text)
+        self.assertIn("暑い日の平均運転時間</dt><dd>12時間／日", response.text)
+        self.assertIn("標準の暑熱対策日数</dt><dd>120日／年", response.text)
+        self.assertIn("利用者入力", response.text)
+
+    def test_invalid_operating_hours_use_safe_error_and_standard_fallback(self) -> None:
+        response = TestClient(app).get("/?operating_hours_per_day=25")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("運転時間は0〜24時間で入力してください", response.text)
+        self.assertIn('name="operating_hours_per_day"', response.text)
+        self.assertIn('value="24"', response.text)
+
+    def test_zero_operating_hours_keeps_basic_charge_and_hides_recovery_claim(self) -> None:
+        response = TestClient(app).get("/?operating_hours_per_day=0")
+
+        first_phase = _financial_card(response.text, "first_phase")
+        self.assertIn("年間電気代</dt><dd>31,200円", first_phase)
+        self.assertIn("回収に必要な防止乳量</dt><dd>評価対象外", first_phase)
+        self.assertIn("基本料金だけを表示し、回収条件は計算しません", first_phase)
+
     def test_no_investment_uses_safe_japanese_display(self) -> None:
         response = TestClient(app).get(
             "/?lactating_cows=60&lane_count=2&existing_fan_count=20"
@@ -83,7 +114,8 @@ class FinancialScreeningViewTest(unittest.TestCase):
         self.assertIn("参考状態から追加する場合の標準試算", response.text)
         self.assertIn("実際の既存台数を確認すると結果が変わります", response.text)
         self.assertIn("1台あたり設備費</dt><dd>220,000円", response.text)
-        self.assertIn("運転期間</dt><dd>24時間／日 × 120日／年", response.text)
+        self.assertIn("暑い日の平均運転時間</dt><dd>24時間／日", response.text)
+        self.assertIn("標準の暑熱対策日数</dt><dd>120日／年", response.text)
         self.assertIn("電力量単価</dt><dd>27円／kWh", response.text)
         self.assertIn("インバーター削減率</dt><dd>25%", response.text)
         self.assertIn("法定耐用年数</dt><dd>7年", response.text)

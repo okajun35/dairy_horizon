@@ -37,6 +37,10 @@ label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, s
 .legend { display: flex; flex-wrap:wrap; gap: 8px; align-items:center; margin: 12px 0 6px; font-size:.84rem; } .legend span { display:inline-block; width:12px; height:12px; border-radius:50%; margin-left:8px; } .covered { background:#356d8f; } .newly-covered { background:#329265; } .uncovered { background:#d17b32; } .selection-detail { min-height: 1.4em; margin-bottom: 0; font-size:.88rem; color:#456053; }
 .climate-background { margin-top:24px; padding:24px; border:1px solid #cad7db; border-radius:14px; background:#f5fafb; }
 .climate-intro, .climate-boundary-note { max-width:900px; color:#49616a; }
+.operating-hours-control { display:flex; flex-wrap:wrap; align-items:end; gap:12px 18px; margin:16px 0; padding:14px 16px; border:1px solid #cad9dc; border-radius:12px; background:#fff; }
+.operating-hours-control label { display:flex; flex-direction:column; gap:6px; }
+.operating-hours-control input { width:7rem; }
+.operating-hours-control p { flex-basis:100%; margin:0; color:#596d73; font-size:.84rem; }
 .climate-period-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
 .climate-period-card { padding:18px; border:1px solid #cad9dc; border-radius:12px; background:#fff; }
 .climate-period-card h3 { margin:0 0 12px; font-size:1.05rem; }

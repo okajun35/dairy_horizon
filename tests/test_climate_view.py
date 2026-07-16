@@ -98,6 +98,27 @@ class ClimateBackgroundViewTest(unittest.TestCase):
         self.assertIn("中央値 79,703円／年", climate_section.group(0))
         self.assertIn("今回の計画台数まで追加（8台追加）", response.text)
 
+    def test_climate_costs_use_user_operating_hours_without_changing_thi_days(self) -> None:
+        dashboard = _dashboard(
+            60,
+            2,
+            10,
+            None,
+            2026,
+            operating_hours_per_day=Decimal("12"),
+        )
+
+        climate = dashboard["climate_background"]
+        near_future = climate["periods"][0]
+        first_phase_cost = near_future["plans"][0]
+        self.assertEqual(climate["operating_hours_per_day"], 12.0)
+        self.assertAlmostEqual(near_future["central_lower_days"], 104.3166666667)
+        self.assertAlmostEqual(near_future["central_upper_days"], 104.8166666667)
+        self.assertEqual(first_phase_cost["additional_fan_count"], 5)
+        self.assertEqual(first_phase_cost["annual_electricity_median_yen"], 82019)
+        self.assertEqual(first_phase_cost["annual_electricity_minimum_yen"], 77629)
+        self.assertEqual(first_phase_cost["annual_electricity_maximum_yen"], 84142)
+
 
 if __name__ == "__main__":
     unittest.main()

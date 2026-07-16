@@ -17,6 +17,7 @@ FORM_DATA = {
     "investment_year": "2026",
     "planned_fan_count": "20",
     "reference_mode": "false",
+    "operating_hours_per_day": "12",
 }
 
 
@@ -60,6 +61,8 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertEqual(captured["input"]["lactating_cows"], 60)  # type: ignore[index]
         self.assertEqual(captured["current"]["fan_shortage"], 10)  # type: ignore[index]
         self.assertEqual(captured["plans"][0]["additional_fan_count"], 5)  # type: ignore[index]
+        self.assertEqual(captured["plans"][0]["standard_annual_electricity_yen"], 89520)  # type: ignore[index]
+        self.assertEqual(captured["climate"]["operating_hours_per_day"], 12.0)  # type: ignore[index]
         self.assertEqual(captured["climate"]["observed_baseline"]["lower_annual_days"], 97.0)  # type: ignore[index]
         self.assertAlmostEqual(captured["climate"]["periods"][0]["median_annual_days"], 104.5666666667)  # type: ignore[index]
         self.assertFalse(captured["boundaries"]["climate_changes_fan_count"])  # type: ignore[index]
@@ -67,6 +70,7 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertIn("現在は頭数目安より10台少なく、未カバー推計は30頭です", response.text)
         self.assertIn("第1期は5台追加で15頭を新たにカバー", response.text)
         self.assertIn("現在相当は97〜98日／年", response.text)
+        self.assertIn("暑い日の平均運転時間は12時間／日です", response.text)
         self.assertIn("2026〜2030年の暑熱対象日は中心目安104〜105日", response.text)
         self.assertIn("小さく始める案と全体案を条件で比べます", response.text)
         self.assertIn("次に確認する一件</dt><dd>実際の設備見積額", response.text)
