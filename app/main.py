@@ -52,6 +52,7 @@ from app.natural_input import (
     OpenAINaturalInputInterpreter,
 )
 from app.pathways import build_path_comparison
+from app.project_annual_economics import calculate_project_annual_economics
 from app.result_explanation import (
     OpenAIResultExplainer,
     ResultExplanationUnavailable,
@@ -162,6 +163,13 @@ def _format_milk_kg_per_cow_day(value: Decimal | None) -> str:
         return "評価対象外"
     rounded = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{rounded:.2f}kg／頭・日"
+
+
+def _format_kg(value: Decimal | None) -> str:
+    if value is None:
+        return "評価対象外"
+    rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return f"{rounded:,.0f}kg"
 
 
 def _rounded_int(value: Decimal) -> int:
@@ -517,15 +525,17 @@ def _annual_recovery_snapshot(
 ) -> dict[str, Any]:
     """Build one annual view while keeping equipment and coverage fixed."""
 
-    result = calculate_financial_screening(
-        FinancialPlan(
-            additional_fan_count=plan.additional_fan_count,
-            newly_covered_cow_count=covered_cow_count,
-        ),
-        replace(
-            assumptions,
-            heat_days_per_year=heat_days_per_year,
-        ),
+    financial_plan = FinancialPlan(
+        additional_fan_count=plan.additional_fan_count,
+        newly_covered_cow_count=covered_cow_count,
+    )
+    period_assumptions = replace(
+        assumptions,
+        heat_days_per_year=heat_days_per_year,
+    )
+    result = calculate_financial_screening(financial_plan, period_assumptions)
+    economics = calculate_project_annual_economics(
+        financial_plan, period_assumptions
     )
     return {
         "label_ja": label_ja,
@@ -539,6 +549,27 @@ def _annual_recovery_snapshot(
         ),
         "annual_electricity_ja": _format_yen(
             result.incremental_annual_electricity_cost_yen
+        ),
+        "annual_avoided_milk_ja": _format_kg(
+            economics.annual_avoided_milk_kg
+        ),
+        "annual_gross_milk_value_ja": _format_yen(
+            economics.annual_gross_milk_value_yen
+        ),
+        "annual_contribution_benefit_ja": _format_yen(
+            economics.annual_contribution_benefit_yen
+        ),
+        "annualized_capex_ja": _format_yen(economics.annualized_capex_yen),
+        "annual_project_burden_ja": _format_yen(
+            economics.annual_project_burden_yen
+        ),
+        "annual_project_balance_ja": _format_yen(
+            economics.annual_project_balance_yen
+        ),
+        "annual_project_balance_yen": (
+            float(economics.annual_project_balance_yen)
+            if economics.annual_project_balance_yen is not None
+            else None
         ),
         "break_even_milk_kg_per_cow_day": (
             float(result.break_even_milk_kg_per_cow_day)

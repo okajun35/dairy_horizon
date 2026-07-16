@@ -426,8 +426,8 @@
       <p class="financial-scale-note">追加台数と新たにカバーする頭数が同じ比率なら、1頭あたりの回収必要量は同じになります。金額と投資規模は案ごとに異なります。</p>
       {% if dashboard.two_horizon_financial %}
         <section class="annual-snapshot-comparison" aria-labelledby="annual-snapshot-heading">
-          <p class="section-kicker">同じ第1期案を二つの気候条件で確認</p>
-          <h3 id="annual-snapshot-heading">THI対象日数が変わると、年間負担と回収条件はどう変わるか</h3>
+          <p class="section-kicker">対策単体の年間収支</p>
+          <h3 id="annual-snapshot-heading">暑熱対策の確認値と年間負担をつなげる</h3>
           <div class="annual-snapshot-grid">
             {% for snapshot in (dashboard.two_horizon_financial.current, dashboard.two_horizon_financial.future) %}
               <article>
@@ -435,13 +435,24 @@
                 <p>{{ snapshot.period_ja }}</p>
                 <dl>
                   <div><dt>THI 72以上の日数</dt><dd>{{ snapshot.heat_days_per_year_ja }}</dd></div>
-                  <div><dt>年間追加電気代</dt><dd>{{ snapshot.annual_electricity_ja }}／年</dd></div>
-                  <div><dt>回収に必要な防止乳量</dt><dd>{{ snapshot.break_even_milk_ja }}</dd></div>
+                  <div><dt>年間防止乳量</dt><dd>{{ snapshot.annual_avoided_milk_ja }}</dd></div>
+                  <div><dt>年間限界利益効果</dt><dd>{{ snapshot.annual_contribution_benefit_ja }}</dd></div>
+                  <div><dt>設備の年間負担</dt><dd>{{ snapshot.annual_project_burden_ja }}</dd></div>
+                  <div><dt>年間の差引</dt><dd class="{% if snapshot.annual_project_balance_yen is not none and snapshot.annual_project_balance_yen < 0 %}annual-balance-negative{% else %}annual-balance-nonnegative{% endif %}">{{ snapshot.annual_project_balance_ja }}</dd></div>
                 </dl>
+                <details>
+                  <summary>年間収支の内訳</summary>
+                  <dl>
+                    <div><dt>乳代への年間効果</dt><dd>{{ snapshot.annual_gross_milk_value_ja }}</dd></div>
+                    <div><dt>年間追加電気代</dt><dd>{{ snapshot.annual_electricity_ja }}／年</dd></div>
+                    <div><dt>設備費の年換算</dt><dd>{{ snapshot.annualized_capex_ja }}</dd></div>
+                    <div><dt>回収に必要な防止乳量</dt><dd>{{ snapshot.break_even_milk_ja }}</dd></div>
+                  </dl>
+                </details>
               </article>
             {% endfor %}
           </div>
-          <p class="annual-snapshot-note">第1期{{ dashboard.two_horizon_financial.additional_fan_count }}台と新規カバー{{ dashboard.two_horizon_financial.covered_cow_count }}頭は変えず、THI対象日数だけを期間別に反映した二つの年間スナップショットです。ファン台数や投資年を気候データから増減していません。5年間の累積ROIではありません。</p>
+          <p class="annual-snapshot-note">第1期{{ dashboard.two_horizon_financial.additional_fan_count }}台と新規カバー{{ dashboard.two_horizon_financial.covered_cow_count }}頭は変えず、THI対象日数だけを期間別に反映した二つの年間スナップショットです。年間限界利益効果は、夏季の防止乳量差・実現乳価・変動費率から計算します。防止乳量差は <span class="source-kind">{{ dashboard.financial_inputs.avoided_milk_loss_kg_per_cow_day.source_kind }}</span> です。年間の差引は、年間限界利益効果から電気代と設備費の年換算を引いた比較値です。農場全体のキャッシュフローではありません。初期投資の支払時期、借入、税、農場全体の費用は含みません。5年間の累積ROIではありません。</p>
         </section>
       {% endif %}
       <details class="financial-details">
