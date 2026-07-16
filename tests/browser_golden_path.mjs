@@ -214,10 +214,11 @@ async function main() {
     );
 
     await evaluate(`
-      document.querySelector('.operating-hours-control [name="operating_hours_per_day"]').value = '12';
-      document.querySelector('.operating-hours-control button[type="submit"]').click();
+      document.querySelector('.next-step-inputs [name="operating_hours_per_day"]').value = '12';
+      document.querySelector('.next-step-inputs button[type="submit"]').click();
     `);
     await waitForPage(evaluate, 'operating_hours_per_day=12');
+    assertEqual(await evaluate(`location.hash`), '#next-step', '運転時間更新後の戻り位置');
     assertEqual(
       await financialState(evaluate, 'first_phase'),
       JSON.stringify(['5台', '15頭', '1,100,000円', '89,520円／年', '2.54kg／頭・日']),
@@ -253,12 +254,13 @@ async function main() {
     );
 
     await evaluate(`
-      document.querySelector('.first-phase-control [name="investment_year"]').value = '2028';
-      document.querySelector('.first-phase-control [name="first_phase_fan_count"]').value = '3';
-      document.querySelector('.first-phase-control [name="planned_fan_count"]').value = '18';
-      document.querySelector('.first-phase-control button[type="submit"]').click();
+      document.querySelector('.next-step-inputs [name="investment_year"]').value = '2028';
+      document.querySelector('.next-step-inputs [name="first_phase_fan_count"]').value = '3';
+      document.querySelector('.next-step-inputs [name="planned_fan_count"]').value = '18';
+      document.querySelector('.next-step-inputs button[type="submit"]').click();
     `);
     await waitForPage(evaluate, 'first_phase_fan_count=3');
+    assertEqual(await evaluate(`location.hash`), '#next-step', '設備案更新後の戻り位置');
     assertEqual(
       await comparisonState(evaluate),
       JSON.stringify({
@@ -318,10 +320,11 @@ async function main() {
     await send('Page.navigate', { url: reductionDemoUrl });
     await waitForPage(evaluate, 'future_target_cow_count=45');
     await evaluate(`
-      document.querySelector('.coverage-control [name="confirmed_covered_cow_count"]').value = '12';
-      document.querySelector('.coverage-control button[type="submit"]').click();
+      document.querySelector('.next-step-inputs [name="confirmed_covered_cow_count"]').value = '12';
+      document.querySelector('.next-step-inputs button[type="submit"]').click();
     `);
     await waitForPage(evaluate, 'confirmed_covered_cow_count=12');
+    assertEqual(await evaluate(`location.hash`), '#next-step', '風速確認後の戻り位置');
     assertEqual(
       await financialState(evaluate, 'first_phase'),
       JSON.stringify(['5台', '12頭', '1,100,000円', '147,840円／年', '3.92kg／頭・日']),

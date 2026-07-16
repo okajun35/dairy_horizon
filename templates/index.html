@@ -19,6 +19,11 @@
   {% set reference_mode = dashboard.input_mode == 'guideline_reference' %}
   {% set operating = dashboard.operating_hours %}
   {% set adaptation = dashboard.two_horizon_screening %}
+  {% set financial_inputs = dashboard.financial_inputs %}
+  {% set sales_context = dashboard.farm_sales_context %}
+  {% set primary_future = not reference_mode and adaptation.inputs.future_target_cow_count is none %}
+  {% set primary_coverage = not reference_mode and not primary_future and adaptation.inputs.confirmed_covered_cow_count is none %}
+  {% set primary_milk = not reference_mode and not primary_future and not primary_coverage and not financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}
   <main>
     <header class="intro check-intro">
       <a class="back-link" href="/">Dairy Horizonの主旨へ戻る</a>
@@ -80,6 +85,11 @@
       <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
       {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
       {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
+      {% if financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}<input name="avoided_milk_loss_kg_per_cow_day" type="hidden" value="{{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}">{% endif %}
+      {% if financial_inputs.milk_price_yen_per_kg.is_user_input %}<input name="milk_price_yen_per_kg" type="hidden" value="{{ financial_inputs.milk_price_yen_per_kg.value_ja }}">{% endif %}
+      {% if financial_inputs.electricity_price_yen_per_kwh.is_user_input %}<input name="electricity_price_yen_per_kwh" type="hidden" value="{{ financial_inputs.electricity_price_yen_per_kwh.value_ja }}">{% endif %}
+      {% if sales_context.current_annual_shipped_milk_kg is not none %}<input name="current_annual_shipped_milk_kg" type="hidden" value="{{ sales_context.current_annual_shipped_milk_kg }}">{% endif %}
+      {% if sales_context.future_annual_shipped_milk_kg is not none %}<input name="future_annual_shipped_milk_kg" type="hidden" value="{{ sales_context.future_annual_shipped_milk_kg }}">{% endif %}
       {% if adaptation.inputs.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">{% endif %}
       {% if adaptation.inputs.confirmed_covered_cow_count is not none %}<input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">{% endif %}
       <label class="input-field region-field"><span class="field-label">地域</span><span class="field-control"><input value="{{ nav.inputs.region_ja }}" disabled aria-describedby="region-availability-note"><input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}"></span><small id="region-availability-note" class="availability-note">現在利用できる気温データは千葉市のみです。ほかの地域は今後拡張予定です。</small></label>
@@ -101,20 +111,6 @@
     <section class="two-horizon" aria-labelledby="two-horizon-heading">
       <p class="section-kicker">牛群方針と第1期</p>
       <h2 id="two-horizon-heading">現在の不足と5年後の不足を分けて確認する</h2>
-      <form class="future-herd-control" method="get" action="/check">
-        <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-        <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-        <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-        <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-        <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-        <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-        {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
-        {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
-        {% if adaptation.inputs.confirmed_covered_cow_count is not none %}<input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">{% endif %}
-        <label>5年後の対策対象頭数<span><input name="future_target_cow_count" type="number" min="1" max="300" value="{{ adaptation.inputs.future_target_cow_count or '' }}" placeholder="例：45"> 頭</span></label>
-        <button type="submit">将来方針を反映</button>
-        <small>初期4項目には加えず、結果を見た後に確認する条件です。</small>
-      </form>
       <div class="horizon-state-grid">
         <article>
           <h3>現在・追加前</h3>
@@ -135,25 +131,9 @@
       </div>
       {% if adaptation.future_after and adaptation.transition_has_guideline_gap %}<p class="transition-warning">移行期間中は頭数基準上の不足が残ります。年ごとの減頭数と5年間の累積ROIは今回の試算に含みません。</p>{% endif %}
       {% if adaptation.future_after %}<p>5年後の頭数基準に到達していても、実際の送風範囲は未確認です。</p>{% endif %}
-      {% if adaptation.inputs.future_target_cow_count is not none %}
-        <form class="coverage-control" method="get" action="/check">
-          <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-          <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-          <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-          <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-          <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-          <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-          <input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">
-          {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
-          {% if reference_mode %}<input name="reference_mode" type="hidden" value="true">{% endif %}
-          {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
-          <label>牛体付近2m/s以上を確認できた対象<span><input name="confirmed_covered_cow_count" type="number" min="0" max="{{ adaptation.assumed_newly_covered_cow_count }}" value="{{ adaptation.inputs.confirmed_covered_cow_count if adaptation.inputs.confirmed_covered_cow_count is not none else '' }}" placeholder="最大{{ adaptation.assumed_newly_covered_cow_count }}"> 頭</span></label>
-          <button type="submit">実測頭数で再計算</button>
-          <small>頭数基準による新規カバー想定は{{ adaptation.assumed_newly_covered_cow_count }}頭です。風速確認は送風範囲の確認であり、乳量効果の証明ではありません。</small>
-        </form>
-        {% if adaptation.coverage_status == 'confirmed_measurement' %}<p class="confirmed-measurement">実測で確認した{{ adaptation.covered_cow_count_for_finance }}頭を回収計算へ反映しています。</p>{% endif %}
-      {% endif %}
+      {% if adaptation.coverage_status == 'confirmed_measurement' %}<p class="confirmed-measurement">実測で確認した{{ adaptation.covered_cow_count_for_finance }}頭を回収計算へ反映しています。</p>{% endif %}
       <p class="next-check-line">{% if adaptation.next_check_key == 'future_target_cow_count' %}次に確認する情報は、5年後の対策対象頭数です。{% elif adaptation.next_check_key == 'cow_level_wind_speed' %}次に確認する情報は、設置候補範囲の牛体付近風速です。{% else %}次に確認する情報は、夏季の乳量差です。{% endif %}</p>
+      <p><a href="#next-step">入力は画面下の「次の一手」でまとめて変更できます。</a></p>
     </section>
 
     <section class="result-explanation guide-conversation" aria-labelledby="result-explanation-heading">
@@ -172,6 +152,11 @@
         <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
         <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
         {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
+        {% if financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}<input name="avoided_milk_loss_kg_per_cow_day" type="hidden" value="{{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}">{% endif %}
+        {% if financial_inputs.milk_price_yen_per_kg.is_user_input %}<input name="milk_price_yen_per_kg" type="hidden" value="{{ financial_inputs.milk_price_yen_per_kg.value_ja }}">{% endif %}
+        {% if financial_inputs.electricity_price_yen_per_kwh.is_user_input %}<input name="electricity_price_yen_per_kwh" type="hidden" value="{{ financial_inputs.electricity_price_yen_per_kwh.value_ja }}">{% endif %}
+        {% if sales_context.current_annual_shipped_milk_kg is not none %}<input name="current_annual_shipped_milk_kg" type="hidden" value="{{ sales_context.current_annual_shipped_milk_kg }}">{% endif %}
+        {% if sales_context.future_annual_shipped_milk_kg is not none %}<input name="future_annual_shipped_milk_kg" type="hidden" value="{{ sales_context.future_annual_shipped_milk_kg }}">{% endif %}
         {% if adaptation.inputs.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">{% endif %}
         {% if adaptation.inputs.confirmed_covered_cow_count is not none %}<input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">{% endif %}
         <input name="reference_mode" type="hidden" value="{{ 'true' if reference_mode else 'false' }}">
@@ -188,58 +173,7 @@
           <p>{{ dashboard.result_explanation.interpretation_ja }}</p>
           <p>{{ dashboard.result_explanation.condition_ja }}</p>
           <dl><div><dt>次に確認する一件</dt><dd>{{ dashboard.result_explanation.next_check_ja }}</dd></div></dl>
-          {% if dashboard.result_explanation.next_check_key == 'operating_hours' %}
-            <form class="guided-answer" method="post" action="/explain">
-              <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-              <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-              <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-              <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-              <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-              <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-              <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
-              {% if adaptation.inputs.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">{% endif %}
-              {% if adaptation.inputs.confirmed_covered_cow_count is not none %}<input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">{% endif %}
-              <input name="reference_mode" type="hidden" value="false">
-              <label>暑い日の平均運転時間<span><input name="operating_hours_per_day" type="number" min="0" max="24" step="0.5" value="{{ operating.value_ja }}"> 時間／日</span></label>
-              <button type="submit">この条件で再計算して読み解く</button>
-              <small>分からない場合は、標準の{{ operating.value_ja }}時間／日のまま先へ進めます。</small>
-            </form>
-          {% elif dashboard.result_explanation.next_check_key == 'future_target_cow_count' %}
-            <form class="guided-answer" method="get" action="/check">
-              <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-              <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-              <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-              <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-              <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-              <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-              <label>5年後の対策対象頭数<span><input name="future_target_cow_count" type="number" min="1" max="300" required> 頭</span></label>
-              <button type="submit">現在と5年後を再計算</button>
-            </form>
-          {% elif dashboard.result_explanation.next_check_key == 'cow_level_wind_speed' %}
-            <form class="guided-answer" method="get" action="/check">
-              <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-              <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-              <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-              <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-              <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-              <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-              <input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">
-              <label>牛体付近2m/s以上を確認できた対象<span><input name="confirmed_covered_cow_count" type="number" min="0" max="{{ adaptation.assumed_newly_covered_cow_count }}" required> 頭</span></label>
-              <button type="submit">実測頭数で再計算</button>
-              <small>風速確認は送風範囲の確認であり、乳量効果の証明ではありません。</small>
-            </form>
-          {% elif dashboard.result_explanation.next_check_key == 'actual_fan_count' %}
-            <form class="guided-answer" method="get" action="/check">
-              <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-              <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-              <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-              <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-              <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-              {% if adaptation.inputs.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">{% endif %}
-              <label>現在使っているファン台数<span><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}"> 台</span></label>
-              <button type="submit">現在の台数として再計算</button>
-            </form>
-          {% endif %}
+          <p><a class="guided-answer-link" href="#next-step">この一件を入力して再計算する</a></p>
           <small class="source-kind">{{ dashboard.result_explanation.source_kind }}</small>
         </div>
       {% endif %}
@@ -285,30 +219,7 @@
               <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
             {% endfor %}
           </div>
-          <form class="first-phase-control" method="get" action="/check">
-            <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-            <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-            <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-            <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-            {% if reference_mode %}<input name="reference_mode" type="hidden" value="true">{% endif %}
-            {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
-            {% if adaptation.inputs.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">{% endif %}
-            {% if adaptation.inputs.confirmed_covered_cow_count is not none %}<input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">{% endif %}
-            <label>比較する実施年
-              <select name="investment_year">
-                {% for year in range(pathway.start_year, pathway.end_year + 1) %}
-                  <option value="{{ year }}"{% if year == first_path.investment_year %} selected{% endif %}>{{ year }}年</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>第1期に追加する台数
-              <span><input name="first_phase_fan_count" type="number" min="0" max="{{ nav.evaluation_additional_fan_count }}" value="{{ nav.plans[1].additional_fan_count }}"> 台</span>
-            </label>
-            <label>今回の計画総台数
-              <span><input name="planned_fan_count" type="number" min="{{ nav.inputs.existing_fan_count }}" value="{% if nav.planned_fan_count is not none %}{{ nav.planned_fan_count }}{% endif %}" placeholder="{{ current.guideline_fan_count }}"> 台</span>
-            </label>
-            <button type="submit">比較を更新</button>
-          </form>
+          <p class="comparison-input-link"><a href="#next-step">実施年・第1期台数・計画総台数を変更する</a></p>
           <div id="comparison-barn-viewer" class="barn-viewer" aria-label="比較後の牛舎の2.5D表示"></div>
           <p class="legend"><span class="covered"></span>{% if reference_mode %}参考値でカバー{% else %}既存でカバー{% endif %} <span class="newly-covered"></span>追加でカバー <span class="uncovered"></span>未カバー推計</p>
           <p id="comparison-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
@@ -356,21 +267,7 @@
       <p class="section-kicker">暑熱期間の背景</p>
       <h2 id="climate-heading">将来の暑熱期間は、運転日数と電力費の背景です</h2>
       <p class="climate-intro">{{ dashboard.climate_background.region_name_ja }}の気象庁観測を現在相当の基準にし、共通するCMIP6 6モデルごとに「将来期間−2020〜2025年モデル基準」を加えました。日平均THI {{ dashboard.climate_background.thi_threshold|int }}以上の日数であり、特定年の確定予報ではありません。この情報からファン台数や投資年は変更しません。</p>
-      <form class="operating-hours-control" method="get" action="/check">
-        <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-        <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-        <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-        <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-        <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-        <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-        <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
-        {% if reference_mode %}<input name="reference_mode" type="hidden" value="true">{% endif %}
-        {% if adaptation.inputs.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">{% endif %}
-        {% if adaptation.inputs.confirmed_covered_cow_count is not none %}<input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">{% endif %}
-        <label for="operating-hours-per-day"><strong>暑い日の平均運転時間</strong><span><input id="operating-hours-per-day" name="operating_hours_per_day" type="number" min="0" max="24" step="0.5" value="{{ operating.value_ja }}"> 時間／日</span></label>
-        <button type="submit">電気代を更新</button>
-        <p>{% if operating.is_user_input %}<strong>利用者入力を反映中。</strong>{% else %}未入力のため全酪連標準例の24時間／日を使用中。{% endif %} 0時間では電力量は0になりますが基本料金は残り、回収条件は計算対象外です。</p>
-      </form>
+      <p class="comparison-input-link">暑い日の平均運転時間は{% if operating.is_user_input %}利用者入力の{{ operating.value_ja }}時間／日{% else %}標準例の24時間／日{% endif %}を使用中です。<a href="#next-step">運転時間と電気代条件を変更する</a></p>
       <div class="climate-period-grid">
         <article class="climate-period-card climate-observed-card" data-climate-period="observed_2020_2025">
           <h3>現在相当（2020〜2025年観測）</h3>
@@ -548,10 +445,65 @@
     </section>
     {% endif %}
 
-    <section class="next-step" aria-labelledby="next-heading">
+    <section class="next-step" id="next-step" aria-labelledby="next-heading">
       <p class="section-kicker">次の一手</p>
-      <h2 id="next-heading">{% if reference_mode %}現在使っているファンは何台ですか？{% elif adaptation.next_check_key == 'future_target_cow_count' %}5年後の対策対象頭数は何頭ですか？{% elif adaptation.next_check_key == 'cow_level_wind_speed' %}追加{{ adaptation.inputs.first_phase_additional_fan_count }}台の候補範囲で、牛体付近風速を確認できますか？{% else %}暑熱期にどれだけ乳量低下を防げましたか？{% endif %}</h2>
-      <p>{% if reference_mode %}分かれば上の参考値を実際の台数へ直し、「実際の台数として計算」を選んでください。現在の不足と、未カバー状態の延べ規模を更新します。{% elif adaptation.next_check_key == 'future_target_cow_count' %}将来頭数を入力すると、現在の過不足とは分けて再計算します。{% elif adaptation.next_check_key == 'cow_level_wind_speed' %}頭数基準ではなく、実際に条件を満たした対象頭数を回収計算へ反映します。{% else %}風速で送風範囲を確認した後は、夏季乳量差で経済効果を確認します。{% endif %}</p>
+      <h2 id="next-heading">{% if reference_mode %}現在使っているファンは何台ですか？{% elif primary_future %}5年後の対策対象頭数は何頭ですか？{% elif primary_coverage %}追加{{ adaptation.inputs.first_phase_additional_fan_count }}台の候補範囲で、牛体付近風速を確認できた対象は何頭ですか？{% elif primary_milk %}暑熱期にどれだけ乳量低下を防げましたか？{% else %}主要な確認値を反映しました{% endif %}</h2>
+      <p>{% if reference_mode %}参考値を実際の台数へ置き換え、現在の不足を再計算します。{% elif primary_future %}将来頭数を入力すると、現在の過不足とは分けて再計算します。{% elif primary_coverage %}頭数基準ではなく、牛体付近2m/s以上を実測で確認した対象頭数を回収計算へ反映します。{% elif primary_milk %}風速で送風範囲を確認した後は、夏季の防止乳量差で経済効果を確認します。{% else %}必要に応じて下の比較条件を変更し、同じ場所で結果を更新できます。{% endif %}</p>
+      <form class="next-step-inputs" method="get" action="/check#next-step">
+        <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
+        <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
+        <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
+        {% if reference_mode %}
+          <label class="next-step-primary" data-primary-input="existing_fan_count">現在使っているファン台数<span><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}" required> 台</span><small>入力すると参考状態を終了し、実際の現在値として計算します。</small></label>
+        {% else %}
+          <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
+        {% endif %}
+
+        {% if primary_future %}
+          <label class="next-step-primary" data-primary-input="future_target_cow_count">5年後の対策対象頭数<span><input name="future_target_cow_count" type="number" min="1" max="300" placeholder="例：45"> 頭</span><small>現在の頭数を変更せず、5年後の頭数基準を別に計算します。</small></label>
+        {% elif primary_coverage %}
+          <input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">
+          <label class="next-step-primary" data-primary-input="confirmed_covered_cow_count">牛体付近2m/s以上を確認できた対象<span><input name="confirmed_covered_cow_count" type="number" min="0" max="{{ adaptation.assumed_newly_covered_cow_count }}" placeholder="最大{{ adaptation.assumed_newly_covered_cow_count }}"> 頭</span><small>風速確認は送風範囲の確認であり、乳量効果の証明ではありません。</small></label>
+        {% elif primary_milk %}
+          <input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">
+          <input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">
+          <label class="next-step-primary" data-primary-input="avoided_milk_loss_kg_per_cow_day">夏季の防止乳量差<span><input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" step="0.1" placeholder="デモ仮定 {{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}"> kg／頭・THI対象日</span><small>未入力時の3.0kgは比較用デモ仮定です。農場で確認した差へ置き換えます。</small></label>
+        {% elif not reference_mode %}
+          <div class="next-step-complete" data-next-step-complete="true">将来頭数、風速確認頭数、夏季の防止乳量差を反映中です。</div>
+        {% endif %}
+
+        <details class="next-step-details"{% if not reference_mode and not primary_future and not primary_coverage and not primary_milk %} open{% endif %}>
+          <summary><strong>比較条件をまとめて変更</strong><span> 設備案・電気・乳価・出荷乳量</span></summary>
+          <div class="next-step-fields">
+            <fieldset>
+              <legend>設備案</legend>
+              <label>比較する実施年<select name="investment_year">{% for year in range(pathway.start_year, pathway.end_year + 1) %}<option value="{{ year }}"{% if year == first_path.investment_year %} selected{% endif %}>{{ year }}年</option>{% endfor %}</select></label>
+              <label>第1期に追加する台数<span><input name="first_phase_fan_count" type="number" min="0" max="{{ nav.evaluation_additional_fan_count }}" value="{{ nav.plans[1].additional_fan_count }}"> 台</span></label>
+              <label>今回の計画総台数<span><input name="planned_fan_count" type="number" min="{{ nav.inputs.existing_fan_count }}" value="{% if nav.planned_fan_count is not none %}{{ nav.planned_fan_count }}{% endif %}" placeholder="{{ current.guideline_fan_count }}"> 台</span></label>
+            </fieldset>
+            <fieldset>
+              <legend>現場で確認する値</legend>
+              {% if reference_mode or (not primary_future and not primary_coverage and not primary_milk) %}<label>5年後の対策対象頭数<span><input name="future_target_cow_count" type="number" min="1" max="300" value="{{ adaptation.inputs.future_target_cow_count or '' }}"> 頭</span></label>{% endif %}
+              {% if adaptation.inputs.future_target_cow_count is not none and (reference_mode or (not primary_future and not primary_coverage and not primary_milk)) %}<label>牛体付近2m/s以上を確認できた対象<span><input name="confirmed_covered_cow_count" type="number" min="0" max="{{ adaptation.assumed_newly_covered_cow_count }}" value="{{ adaptation.inputs.confirmed_covered_cow_count if adaptation.inputs.confirmed_covered_cow_count is not none else '' }}"> 頭</span></label>{% endif %}
+              {% if not primary_milk %}<label>夏季の防止乳量差<span><input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" step="0.1" value="{% if financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}{{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}{% endif %}" placeholder="標準仮定 {{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}"> kg／頭・THI対象日</span></label>{% endif %}
+            </fieldset>
+            <fieldset>
+              <legend>電気と乳価</legend>
+              <label>暑い日の平均運転時間<span><input name="operating_hours_per_day" type="number" min="0" max="24" step="0.5" value="{% if operating.is_user_input %}{{ operating.value_ja }}{% endif %}" placeholder="標準 {{ operating.value_ja }}"> 時間／日</span></label>
+              <label>実現乳価<span><input name="milk_price_yen_per_kg" type="number" min="0" step="0.1" value="{% if financial_inputs.milk_price_yen_per_kg.is_user_input %}{{ financial_inputs.milk_price_yen_per_kg.value_ja }}{% endif %}" placeholder="標準 {{ financial_inputs.milk_price_yen_per_kg.value_ja }}"> 円／kg</span></label>
+              <label>電力量単価<span><input name="electricity_price_yen_per_kwh" type="number" min="0" step="0.01" value="{% if financial_inputs.electricity_price_yen_per_kwh.is_user_input %}{{ financial_inputs.electricity_price_yen_per_kwh.value_ja }}{% endif %}" placeholder="標準 {{ financial_inputs.electricity_price_yen_per_kwh.value_ja }}"> 円／kWh</span></label>
+            </fieldset>
+            <fieldset>
+              <legend>売上規模の背景（任意）</legend>
+              <label>現在の年間出荷乳量<span><input name="current_annual_shipped_milk_kg" type="number" min="0" step="1" value="{{ sales_context.current_annual_shipped_milk_kg if sales_context.current_annual_shipped_milk_kg is not none else '' }}"> kg／年</span></label>
+              <label>5年後の年間出荷乳量<span><input name="future_annual_shipped_milk_kg" type="number" min="0" step="1" value="{{ sales_context.future_annual_shipped_milk_kg if sales_context.future_annual_shipped_milk_kg is not none else '' }}"> kg／年</span></label>
+              <small>頭数や365日から推定せず、直接入力した値だけを売上規模として表示します。設備採算には使いません。</small>
+            </fieldset>
+          </div>
+        </details>
+        <button type="submit">この条件で再計算</button>
+        <small class="anchor-return-note">更新後もこの「次の一手」へ戻ります。</small>
+      </form>
     </section>
 
     <section class="conditions" aria-labelledby="conditions-heading">

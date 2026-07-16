@@ -82,7 +82,7 @@ class FinancialScreeningViewTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("運転時間は0〜24時間で入力してください", response.text)
         self.assertIn('name="operating_hours_per_day"', response.text)
-        self.assertIn('value="24"', response.text)
+        self.assertIn('placeholder="標準 24"', response.text)
 
     def test_zero_operating_hours_keeps_basic_charge_and_hides_recovery_claim(self) -> None:
         response = TestClient(app).get("/check?operating_hours_per_day=0")

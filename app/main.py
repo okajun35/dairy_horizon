@@ -116,6 +116,23 @@ def _optional_int(value: str | None, label_ja: str) -> int | None:
         raise InputValidationError(f"{label_ja}は整数で入力してください。") from exc
 
 
+def _optional_bounded_int(
+    value: str | None,
+    label_ja: str,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int | None:
+    parsed = _optional_int(value, label_ja)
+    if parsed is None:
+        return None
+    if not minimum <= parsed <= maximum:
+        raise InputValidationError(
+            f"{label_ja}は{minimum}〜{maximum}の整数で入力してください。"
+        )
+    return parsed
+
+
 def _optional_operating_hours(value: str | None) -> Decimal | None:
     if value is None or not value.strip():
         return None
@@ -1281,8 +1298,8 @@ def check(
     operating_hours_per_day: str | None = Query(None),
     region_ja: str = Query(SUPPORTED_REGION_JA),
     reference_mode: bool = Query(False),
-    future_target_cow_count: int | None = Query(None, ge=1, le=300),
-    confirmed_covered_cow_count: int | None = Query(None, ge=0, le=300),
+    future_target_cow_count: str | None = Query(None),
+    confirmed_covered_cow_count: str | None = Query(None),
     avoided_milk_loss_kg_per_cow_day: str | None = Query(None),
     milk_price_yen_per_kg: str | None = Query(None),
     electricity_price_yen_per_kwh: str | None = Query(None),
@@ -1308,6 +1325,18 @@ def check(
         parsed_future_shipment = _optional_non_negative_decimal(
             future_annual_shipped_milk_kg, "5年後の年間出荷乳量"
         )
+        parsed_future_target = _optional_bounded_int(
+            future_target_cow_count,
+            "5年後の対策対象頭数",
+            minimum=1,
+            maximum=300,
+        )
+        parsed_confirmed_coverage = _optional_bounded_int(
+            confirmed_covered_cow_count,
+            "牛体付近2m/s以上を確認できた対象頭数",
+            minimum=0,
+            maximum=300,
+        )
         dashboard = _dashboard(
             lactating_cows,
             lane_count,
@@ -1318,8 +1347,8 @@ def check(
             region_ja,
             reference_mode,
             parsed_operating_hours,
-            future_target_cow_count,
-            confirmed_covered_cow_count,
+            parsed_future_target,
+            parsed_confirmed_coverage,
             parsed_avoided_milk,
             parsed_milk_price,
             parsed_electricity_price,
@@ -1359,8 +1388,8 @@ def explain_screening_result(
     operating_hours_per_day: str | None = Form(None),
     region_ja: str = Form(SUPPORTED_REGION_JA),
     reference_mode: bool = Form(False),
-    future_target_cow_count: int | None = Form(None),
-    confirmed_covered_cow_count: int | None = Form(None),
+    future_target_cow_count: str | None = Form(None),
+    confirmed_covered_cow_count: str | None = Form(None),
     avoided_milk_loss_kg_per_cow_day: str | None = Form(None),
     milk_price_yen_per_kg: str | None = Form(None),
     electricity_price_yen_per_kwh: str | None = Form(None),
@@ -1388,6 +1417,18 @@ def explain_screening_result(
     parsed_future_shipment = _optional_non_negative_decimal(
         future_annual_shipped_milk_kg, "5年後の年間出荷乳量"
     )
+    parsed_future_target = _optional_bounded_int(
+        future_target_cow_count,
+        "5年後の対策対象頭数",
+        minimum=1,
+        maximum=300,
+    )
+    parsed_confirmed_coverage = _optional_bounded_int(
+        confirmed_covered_cow_count,
+        "牛体付近2m/s以上を確認できた対象頭数",
+        minimum=0,
+        maximum=300,
+    )
     dashboard = _dashboard(
         lactating_cows,
         lane_count,
@@ -1398,8 +1439,8 @@ def explain_screening_result(
         region_ja,
         reference_mode,
         parsed_operating_hours,
-        future_target_cow_count,
-        confirmed_covered_cow_count,
+        parsed_future_target,
+        parsed_confirmed_coverage,
         parsed_avoided_milk,
         parsed_milk_price,
         parsed_electricity_price,
