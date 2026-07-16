@@ -33,6 +33,7 @@ class NaturalInputCandidate:
     lane_count: int | None
     existing_fan_count: int | None
     missing_fields: tuple[NaturalInputField, ...]
+    future_target_cow_count: int | None = None
     source_kind: Literal["user_input_candidate"] = "user_input_candidate"
 
 
@@ -48,12 +49,13 @@ OUTPUT_SCHEMA: dict[str, object] = {
         "lactating_cows": {"type": ["integer", "null"]},
         "lane_count": {"type": ["integer", "null"]},
         "existing_fan_count": {"type": ["integer", "null"]},
+        "future_target_cow_count": {"type": ["integer", "null"]},
         "missing_fields": {
             "type": "array",
             "items": {"type": "string", "enum": list(FIELD_ORDER)},
         },
     },
-    "required": [*FIELD_ORDER, "missing_fields"],
+    "required": [*FIELD_ORDER, "future_target_cow_count", "missing_fields"],
 }
 
 
@@ -88,7 +90,8 @@ class OpenAINaturalInputInterpreter:
             "model": self._model,
             "instructions": (
                 "あなたは酪農家が明示した農場条件だけを抽出します。"
-                "地域、搾乳牛頭数、牛床列数、既存ファン数を候補として返してください。"
+                "地域、現在の搾乳牛頭数、牛床列数、既存ファン数を候補として返してください。"
+                "利用者が将来の対策対象頭数を明示した場合だけfuture_target_cow_countへ返してください。"
                 "書かれていない値は推測せずnullにし、missing_fieldsへ入れてください。"
                 "必要ファン台数、投資判断、採算、将来気候は計算しないでください。"
             ),
@@ -146,6 +149,9 @@ class OpenAINaturalInputInterpreter:
         cows = OpenAINaturalInputInterpreter._bounded_int(raw.get("lactating_cows"), 1, 300)
         lanes = OpenAINaturalInputInterpreter._bounded_int(raw.get("lane_count"), 1, 6)
         existing = OpenAINaturalInputInterpreter._bounded_int(raw.get("existing_fan_count"), 0, 1000)
+        future_target = OpenAINaturalInputInterpreter._bounded_int(
+            raw.get("future_target_cow_count"), 1, 300
+        )
         values = {
             "region_ja": region,
             "lactating_cows": cows,
@@ -153,7 +159,9 @@ class OpenAINaturalInputInterpreter:
             "existing_fan_count": existing,
         }
         missing = tuple(field for field in FIELD_ORDER if values[field] is None)
-        return NaturalInputCandidate(region, cows, lanes, existing, missing)
+        return NaturalInputCandidate(
+            region, cows, lanes, existing, missing, future_target
+        )
 
     @staticmethod
     def _bounded_int(value: object, minimum: int, maximum: int) -> int | None:

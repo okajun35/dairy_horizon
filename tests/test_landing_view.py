@@ -16,6 +16,8 @@ class LandingViewTest(unittest.TestCase):
         self.assertIn("現在相当（2020〜2025年）", response.text)
         self.assertIn("近未来（2026〜2030年）", response.text)
         self.assertIn("次の期間（2031〜2034年）", response.text)
+        self.assertIn('href="/check?future_target_cow_count=45"', response.text)
+        self.assertIn("60頭から5年後45頭のデモを見る", response.text)
         self.assertIn('href="/check"', response.text)
         self.assertIn("自分の牛舎で確認する", response.text)
         self.assertNotIn('id="current-barn-viewer"', response.text)

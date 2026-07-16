@@ -20,6 +20,11 @@ from app.climate_adjustment import (
     anchor_future_thi_days,
     load_observed_thi_baseline,
 )
+from app.adaptation_screening import (
+    AdaptationInputError,
+    TwoHorizonInput,
+    build_two_horizon_screening,
+)
 from app.climate_profile import (
     ClimatePeriodSummary,
     load_climate_profile,
@@ -32,6 +37,7 @@ from app.financial_screening import (
     STANDARD_USEFUL_LIFE_YEARS,
     calculate_financial_screening,
 )
+from app.equipment_branches import build_equipment_branches
 from app.navigator import (
     BarnInput,
     CurrentBarnState,
@@ -147,10 +153,16 @@ def _climate_plan_view(
     plan: FanPlan,
     summary: ObservationAnchoredClimateSummary,
     operating_hours_per_day: Decimal,
+    newly_covered_cow_count: int | None = None,
 ) -> dict[str, Any]:
+    covered_cow_count = (
+        len(plan.newly_covered_cow_ids)
+        if newly_covered_cow_count is None
+        else newly_covered_cow_count
+    )
     financial_plan = FinancialPlan(
         additional_fan_count=plan.additional_fan_count,
-        newly_covered_cow_count=len(plan.newly_covered_cow_ids),
+        newly_covered_cow_count=covered_cow_count,
     )
     results = {
         key: calculate_financial_screening(
@@ -176,7 +188,7 @@ def _climate_plan_view(
         "key": plan.key,
         "label_ja": plan.label_ja,
         "additional_fan_count": plan.additional_fan_count,
-        "newly_covered_cow_count": len(plan.newly_covered_cow_ids),
+        "newly_covered_cow_count": covered_cow_count,
         "annual_electricity_median_yen": _rounded_int(
             results["median"].incremental_annual_electricity_cost_yen
         ),
@@ -212,6 +224,7 @@ def _climate_period_view(
     raw_model_summary: ClimatePeriodSummary,
     plans: tuple[FanPlan, ...],
     operating_hours_per_day: Decimal,
+    covered_cow_overrides: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     hours_per_day = operating_hours_per_day
     return {
@@ -256,7 +269,12 @@ def _climate_period_view(
             f"〜{_rounded_int(raw_model_summary.maximum_annual_days)}日／年"
         ),
         "plans": tuple(
-            _climate_plan_view(plan, summary, operating_hours_per_day)
+            _climate_plan_view(
+                plan,
+                summary,
+                operating_hours_per_day,
+                (covered_cow_overrides or {}).get(plan.key),
+            )
             for plan in plans[1:]
         ),
     }
@@ -265,6 +283,7 @@ def _climate_period_view(
 def _climate_background(
     plans: tuple[FanPlan, ...],
     operating_hours_per_day: Decimal,
+    covered_cow_overrides: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     observed = load_observed_thi_baseline(OBSERVED_THI_BASELINE_PATH)
     model_baseline = summarize_thi_days(
@@ -305,7 +324,13 @@ def _climate_background(
             "source_dataset": observed.source_dataset,
         },
         "periods": tuple(
-            _climate_period_view(adjusted, raw, plans, operating_hours_per_day)
+            _climate_period_view(
+                adjusted,
+                raw,
+                plans,
+                operating_hours_per_day,
+                covered_cow_overrides,
+            )
             for adjusted, raw in zip(
                 adjusted_summaries, raw_future_summaries, strict=True
             )
@@ -319,11 +344,17 @@ def _financial_plan_view(
     plan: FanPlan,
     assumptions: FinancialAssumptions,
     operating_hours_source_kind: str,
+    newly_covered_cow_count: int | None = None,
 ) -> dict[str, Any]:
+    covered_cow_count = (
+        len(plan.newly_covered_cow_ids)
+        if newly_covered_cow_count is None
+        else newly_covered_cow_count
+    )
     result = calculate_financial_screening(
         FinancialPlan(
             additional_fan_count=plan.additional_fan_count,
-            newly_covered_cow_count=len(plan.newly_covered_cow_ids),
+            newly_covered_cow_count=covered_cow_count,
         ),
         assumptions,
     )
@@ -345,7 +376,7 @@ def _financial_plan_view(
         "key": plan.key,
         "label_ja": plan.label_ja,
         "additional_fan_count": plan.additional_fan_count,
-        "newly_covered_cow_count": len(plan.newly_covered_cow_ids),
+        "newly_covered_cow_count": covered_cow_count,
         "incremental_capex_yen": _rounded_int(result.incremental_capex_yen),
         "annual_electricity_yen": _rounded_int(
             result.incremental_annual_electricity_cost_yen
@@ -374,6 +405,7 @@ def _financial_comparison(
     plans: tuple[FanPlan, ...],
     operating_hours_per_day: Decimal,
     operating_hours_source_kind: str,
+    covered_cow_overrides: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     assumptions = replace(
         STANDARD_FINANCIAL_ASSUMPTIONS,
@@ -382,7 +414,10 @@ def _financial_comparison(
     return {
         "plans": tuple(
             _financial_plan_view(
-                plan, assumptions, operating_hours_source_kind
+                plan,
+                assumptions,
+                operating_hours_source_kind,
+                (covered_cow_overrides or {}).get(plan.key),
             )
             for plan in plans[1:]
         ),
@@ -452,6 +487,149 @@ def _financial_comparison(
     }
 
 
+def _annual_recovery_snapshot(
+    *,
+    label_ja: str,
+    period_ja: str,
+    plan: FanPlan,
+    covered_cow_count: int,
+    heat_days_per_year: Decimal,
+    operating_hours_per_day: Decimal,
+) -> dict[str, Any]:
+    """Build one annual view while keeping equipment and coverage fixed."""
+
+    result = calculate_financial_screening(
+        FinancialPlan(
+            additional_fan_count=plan.additional_fan_count,
+            newly_covered_cow_count=covered_cow_count,
+        ),
+        replace(
+            STANDARD_FINANCIAL_ASSUMPTIONS,
+            heat_days_per_year=heat_days_per_year,
+            operating_hours_per_day=operating_hours_per_day,
+        ),
+    )
+    return {
+        "label_ja": label_ja,
+        "period_ja": period_ja,
+        "heat_days_per_year": float(heat_days_per_year),
+        "heat_days_per_year_ja": (
+            f"{heat_days_per_year.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)}日／年"
+        ),
+        "annual_electricity_yen": _rounded_int(
+            result.incremental_annual_electricity_cost_yen
+        ),
+        "annual_electricity_ja": _format_yen(
+            result.incremental_annual_electricity_cost_yen
+        ),
+        "break_even_milk_kg_per_cow_day": (
+            float(result.break_even_milk_kg_per_cow_day)
+            if result.break_even_milk_kg_per_cow_day is not None
+            else None
+        ),
+        "break_even_milk_ja": _format_milk_kg_per_cow_day(
+            result.break_even_milk_kg_per_cow_day
+        ),
+    }
+
+
+def _two_horizon_financial_view(
+    *,
+    first_phase_plan: FanPlan,
+    covered_cow_count: int,
+    operating_hours_per_day: Decimal,
+    climate_background: dict[str, Any],
+    future_target_cow_count: int | None,
+) -> dict[str, Any] | None:
+    """Compare annual recovery conditions at two climate snapshots.
+
+    This deliberately does not interpolate herd size or calculate cumulative
+    ROI. Climate changes only the annual heat-day assumption.
+    """
+
+    if future_target_cow_count is None:
+        return None
+
+    observed = climate_background["observed_baseline"]
+    current_heat_days = (
+        Decimal(str(observed["lower_annual_days"]))
+        + Decimal(str(observed["upper_annual_days"]))
+    ) / Decimal("2")
+    future_period = climate_background["periods"][-1]
+    future_heat_days = Decimal(str(future_period["median_annual_days"]))
+
+    return {
+        "current": _annual_recovery_snapshot(
+            label_ja="現在条件での年間回収目安",
+            period_ja=(
+                f"JMA実績 {observed['start_year']}〜{observed['end_year']}年"
+            ),
+            plan=first_phase_plan,
+            covered_cow_count=covered_cow_count,
+            heat_days_per_year=current_heat_days,
+            operating_hours_per_day=operating_hours_per_day,
+        ),
+        "future": _annual_recovery_snapshot(
+            label_ja="5年後条件での年間回収目安",
+            period_ja=(
+                f"CMIP6参考 {future_period['start_year']}〜"
+                f"{future_period['end_year']}年"
+            ),
+            plan=first_phase_plan,
+            covered_cow_count=covered_cow_count,
+            heat_days_per_year=future_heat_days,
+            operating_hours_per_day=operating_hours_per_day,
+        ),
+        "additional_fan_count": first_phase_plan.additional_fan_count,
+        "covered_cow_count": covered_cow_count,
+    }
+
+
+def _equipment_branch_views(
+    *,
+    standard_fan_count: int,
+    standard_covered_cow_count: int,
+    assumptions: FinancialAssumptions,
+    standard_coverage_confirmed: bool,
+) -> tuple[dict[str, Any], ...]:
+    branches = build_equipment_branches(
+        standard_fan_count=standard_fan_count,
+        standard_covered_cow_count=standard_covered_cow_count,
+        assumptions=assumptions,
+        standard_coverage_confirmed=standard_coverage_confirmed,
+    )
+    return tuple(
+        {
+            "key": branch.key,
+            "label_ja": branch.label_ja,
+            "planned_fan_count": branch.planned_fan_count,
+            "power_kw_per_fan_ja": _format_decimal(branch.power_kw_per_fan),
+            "power_source_kind": branch.power_source_kind,
+            "count_source_kind": branch.count_source_kind,
+            "coverage_note_ja": (
+                f"実測で確認した{branch.covered_cow_count}頭を使用"
+                if branch.coverage_status == "confirmed_measurement"
+                else (
+                    f"頭数基準による新規カバー想定{branch.covered_cow_count}頭"
+                    if branch.coverage_status == "guidance_estimate"
+                    else "必要台数とカバー範囲は未評価"
+                )
+            ),
+            "annual_electricity_ja": _format_yen(
+                branch.annual_electricity_yen
+            ),
+            "incremental_capex_ja": _format_yen(
+                branch.incremental_capex_yen
+            ),
+            "break_even_milk_ja": _format_milk_kg_per_cow_day(
+                branch.break_even_milk_kg_per_cow_day
+            ),
+            "next_confirmation_ja": branch.next_confirmation_ja,
+        }
+        for branch in branches
+    )
+
+
 def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
     """Build the only numeric contract sent to the explanation API."""
 
@@ -513,6 +691,7 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
         )
 
     climate = dashboard["climate_background"]
+    adaptation = dashboard["two_horizon_screening"]
     return {
         "input": {
             "region_ja": navigation.inputs.region_ja,
@@ -529,6 +708,27 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
             "guideline_fan_count": current.guideline_fan_count,
             "fan_shortage": current.guideline_gap_fan_count,
             "uncovered_cow_count": len(current.estimated_uncovered_cow_ids),
+        },
+        "future": (
+            {
+                "horizon_years": adaptation.inputs.horizon_years,
+                "target_cow_count": adaptation.future_after.target_cow_count,
+                "active_fan_count": adaptation.future_after.active_fan_count,
+                "guideline_fan_count": adaptation.future_after.guideline_fan_count,
+                "guideline_gap_fan_count": adaptation.future_after.guideline_gap_fan_count,
+            }
+            if adaptation.future_after is not None
+            else None
+        ),
+        "decision_context": {
+            "coverage_status": adaptation.coverage_status,
+            "assumed_newly_covered_cow_count": (
+                adaptation.assumed_newly_covered_cow_count
+            ),
+            "covered_cow_count_for_finance": (
+                adaptation.covered_cow_count_for_finance
+            ),
+            "next_check_key": adaptation.next_check_key,
         },
         "plans": plans,
         "climate": {
@@ -607,6 +807,8 @@ def _evidence(
     operating_hours_source_kind: str,
     *,
     reference_mode: bool = False,
+    future_target_cow_count: int | None = None,
+    confirmed_covered_cow_count: int | None = None,
 ) -> tuple[dict[str, str], ...]:
     reference_uses_guideline = (
         inputs.existing_fan_count == current_state.guideline_fan_count
@@ -646,11 +848,39 @@ def _evidence(
             {"item": "第1期の比較台数", "value": f"{first_phase_fan_count}台", "kind": "demo_assumption", "source": "段階導入を比較するための初期モデルケース", "note": "推奨台数ではありません。結果画面で変更できます。"},
         )
     )
-    return input_rows + (
+    future_rows = (
+        (
+            {
+                "item": "5年後の対策対象頭数",
+                "value": f"{future_target_cow_count}頭",
+                "kind": "user_input",
+                "source": "今回の入力",
+                "note": "現在の頭数と混ぜず、5年後の頭数基準だけに使用します。",
+            },
+        )
+        if future_target_cow_count is not None
+        else ()
+    )
+    measurement_rows = (
+        (
+            {
+                "item": "実測で条件を満たしたカバー頭数",
+                "value": f"{confirmed_covered_cow_count}頭",
+                "kind": "user_input",
+                "source": "牛体付近風速の確認結果",
+                "note": "回収計算の対象頭数へ使用します。乳量効果の確認ではありません。",
+            },
+        )
+        if confirmed_covered_cow_count is not None
+        else ()
+    )
+    return input_rows + future_rows + measurement_rows + (
         {"item": "ファンのカバー目安", "value": "3頭／台・牛体付近2m/s以上", "kind": current_state.coverage_basis_kind, "source": "全酪連 COW BELL No.178『暑熱対策の設備投資を考える』pp.6-8", "note": "実際の間隔・風量・設置位置で必ず確認します。"},
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
         {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
         {"item": "暑い日の平均運転時間", "value": f"{_format_decimal(operating_hours_per_day)}時間／日", "kind": operating_hours_source_kind, "source": "利用者が結果画面で入力" if operating_hours_source_kind == "user_input" else "全酪連標準計算例", "note": "電力量と回収条件に使用します。THI対象日数、ファン台数、設備費、投資年は変更しません。"},
+        {"item": "省電力100cm級の比較仕様", "value": "0.25kW／台・標準型と同じ台数", "kind": "manufacturer_spec", "source": "利用者提供『乳牛の暑熱対策チャレンジ ガイドブックin十勝』資材一覧", "note": "台数は比較用デモ仮定です。カバー範囲と回収条件は未評価です。"},
+        {"item": "大型高風量型の比較仕様", "value": "1.055kW／台・2台", "kind": "manufacturer_spec", "source": "利用者提供『乳牛の暑熱対策チャレンジ ガイドブックin十勝』資材一覧", "note": "2台は比較用デモ仮定です。必要台数とカバー範囲は未評価です。"},
     ) + comparison_rows + (
         {"item": "直近の暑熱対象日", "value": "2020〜2025年の年平均97.0〜97.5日", "kind": "official_observation", "source": "気象庁『過去の気象データ検索』千葉（観測点47682）", "note": "日平均THI 72以上。湿度欠測3日を非暑熱日とせず下限・上限で保持しています。"},
         {"item": "将来気候", "value": "2026〜2034年を観測基準へ補正して期間表示", "kind": "processed_cmip6_api", "source": "Open-Meteo Climate API・CMIP6共通6モデルの保存済みプロファイル", "note": "モデルごとに将来期間−2020〜2025年モデル基準を計算し、気象庁観測基準へ加えます。ファン台数・投資時期には使いません。"},
@@ -667,6 +897,8 @@ def _dashboard(
     region_ja: str = SUPPORTED_REGION_JA,
     reference_mode: bool = False,
     operating_hours_per_day: Decimal | None = None,
+    future_target_cow_count: int | None = None,
+    confirmed_covered_cow_count: int | None = None,
 ) -> dict[str, Any]:
     inputs = BarnInput(
         lactating_cows=lactating_cows,
@@ -678,6 +910,23 @@ def _dashboard(
     )
     navigation = build_navigation(inputs)
     path_comparison = build_path_comparison(inputs, investment_year=investment_year)
+    two_horizon_screening = build_two_horizon_screening(
+        TwoHorizonInput(
+            current_target_cow_count=lactating_cows,
+            future_target_cow_count=future_target_cow_count,
+            existing_fan_count=existing_fan_count,
+            first_phase_additional_fan_count=(
+                navigation.plans[1].additional_fan_count
+            ),
+            horizon_years=5,
+            confirmed_covered_cow_count=confirmed_covered_cow_count,
+        )
+    )
+    covered_cow_overrides = (
+        {"first_phase": two_horizon_screening.covered_cow_count_for_finance}
+        if confirmed_covered_cow_count is not None
+        else None
+    )
     hours_were_entered = operating_hours_per_day is not None
     effective_operating_hours = (
         operating_hours_per_day
@@ -687,16 +936,34 @@ def _dashboard(
     operating_hours_source_kind = (
         "user_input" if hours_were_entered else "industry_guidance"
     )
+    financial_assumptions = replace(
+        STANDARD_FINANCIAL_ASSUMPTIONS,
+        operating_hours_per_day=effective_operating_hours,
+    )
+    financial_comparison = _financial_comparison(
+        navigation.plans,
+        effective_operating_hours,
+        operating_hours_source_kind,
+        covered_cow_overrides,
+    )
+    climate_background = _climate_background(
+        navigation.plans,
+        effective_operating_hours,
+        covered_cow_overrides,
+    )
     return {
         "navigation": navigation,
         "path_comparison": path_comparison,
-        "financial_comparison": _financial_comparison(
-            navigation.plans,
-            effective_operating_hours,
-            operating_hours_source_kind,
-        ),
-        "climate_background": _climate_background(
-            navigation.plans, effective_operating_hours
+        "financial_comparison": financial_comparison,
+        "climate_background": climate_background,
+        "two_horizon_financial": _two_horizon_financial_view(
+            first_phase_plan=navigation.plans[1],
+            covered_cow_count=(
+                two_horizon_screening.covered_cow_count_for_finance
+            ),
+            operating_hours_per_day=effective_operating_hours,
+            climate_background=climate_background,
+            future_target_cow_count=future_target_cow_count,
         ),
         "operating_hours": {
             "value": float(effective_operating_hours),
@@ -704,9 +971,32 @@ def _dashboard(
             "source_kind": operating_hours_source_kind,
             "is_user_input": hours_were_entered,
         },
+        "two_horizon_screening": two_horizon_screening,
+        "equipment_branches": _equipment_branch_views(
+            standard_fan_count=navigation.plans[1].additional_fan_count,
+            standard_covered_cow_count=(
+                two_horizon_screening.covered_cow_count_for_finance
+            ),
+            assumptions=financial_assumptions,
+            standard_coverage_confirmed=(
+                confirmed_covered_cow_count is not None
+            ),
+        ),
         "viewer_payload": asdict(navigation) | {
             "selected_plan": "first_phase",
             "path_comparison": asdict(path_comparison),
+            "two_horizon_screening": {
+                "current_before": asdict(two_horizon_screening.current_before),
+                "current_after": asdict(two_horizon_screening.current_after),
+                "future_after": (
+                    asdict(two_horizon_screening.future_after)
+                    if two_horizon_screening.future_after is not None
+                    else None
+                ),
+                "transition_has_guideline_gap": (
+                    two_horizon_screening.transition_has_guideline_gap
+                ),
+            },
             "input_mode": "guideline_reference" if reference_mode else "confirmed",
         },
         "evidence": _evidence(
@@ -716,6 +1006,8 @@ def _dashboard(
             effective_operating_hours,
             operating_hours_source_kind,
             reference_mode=reference_mode,
+            future_target_cow_count=future_target_cow_count,
+            confirmed_covered_cow_count=confirmed_covered_cow_count,
         ),
         "input_mode": "guideline_reference" if reference_mode else "confirmed",
     }
@@ -746,6 +1038,7 @@ def _candidate_view(candidate: NaturalInputCandidate) -> dict[str, Any]:
         "lactating_cows": candidate.lactating_cows,
         "lane_count": candidate.lane_count,
         "existing_fan_count": candidate.existing_fan_count,
+        "future_target_cow_count": candidate.future_target_cow_count,
         "missing_fields": remaining_missing,
         "missing_labels": tuple(missing_labels[field] for field in remaining_missing),
         "reference_fan_count": (
@@ -779,6 +1072,8 @@ def check(
     operating_hours_per_day: str | None = Query(None),
     region_ja: str = Query(SUPPORTED_REGION_JA),
     reference_mode: bool = Query(False),
+    future_target_cow_count: int | None = Query(None, ge=1, le=300),
+    confirmed_covered_cow_count: int | None = Query(None, ge=0, le=300),
 ) -> HTMLResponse:
     try:
         region_ja = SUPPORTED_REGION_JA
@@ -794,9 +1089,11 @@ def check(
             region_ja,
             reference_mode,
             parsed_operating_hours,
+            future_target_cow_count,
+            confirmed_covered_cow_count,
         )
         error = None
-    except InputValidationError as exc:
+    except (AdaptationInputError, InputValidationError) as exc:
         dashboard = _dashboard(60, 2, 10, None, 2026, None)
         error = str(exc)
     return templates.TemplateResponse(
@@ -824,6 +1121,8 @@ def explain_screening_result(
     operating_hours_per_day: str | None = Form(None),
     region_ja: str = Form(SUPPORTED_REGION_JA),
     reference_mode: bool = Form(False),
+    future_target_cow_count: int | None = Form(None),
+    confirmed_covered_cow_count: int | None = Form(None),
     explainer: OpenAIResultExplainer = Depends(get_result_explainer),
 ) -> HTMLResponse:
     region_ja = SUPPORTED_REGION_JA
@@ -841,13 +1140,18 @@ def explain_screening_result(
         region_ja,
         reference_mode,
         parsed_operating_hours,
+        future_target_cow_count,
+        confirmed_covered_cow_count,
     )
     payload = _result_explanation_payload(dashboard)
     api_failed = False
     try:
         explanation = explainer.explain(payload)
     except ResultExplanationUnavailable:
-        explanation = build_fallback_explanation(reference_mode)
+        explanation = build_fallback_explanation(
+            reference_mode,
+            dashboard["two_horizon_screening"].next_check_key,
+        )
         api_failed = True
     dashboard["result_explanation"] = asdict(explanation) | {
         "facts_ja": _result_facts_ja(payload),

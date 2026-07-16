@@ -68,6 +68,35 @@ class OpenAINaturalInputInterpreterTest(unittest.TestCase):
         self.assertTrue(captured_request["text"]["format"]["strict"])
         self.assertNotIn("tools", captured_request)
 
+    def test_extracts_optional_future_target_without_making_it_an_initial_requirement(self) -> None:
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json=_response_payload(
+                    {
+                        "region_ja": "千葉市",
+                        "lactating_cows": 60,
+                        "lane_count": 2,
+                        "existing_fan_count": 10,
+                        "future_target_cow_count": 45,
+                        "missing_fields": [],
+                    }
+                ),
+            )
+
+        interpreter = OpenAINaturalInputInterpreter(
+            "test-key",
+            "gpt-5.6-luna",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        result = interpreter.interpret(
+            "現在60頭で、5年後には45頭程度へ減らす予定です。ファンは10台あります。牛舎は2列です。"
+        )
+
+        self.assertEqual(result.future_target_cow_count, 45)
+        self.assertNotIn("future_target_cow_count", result.missing_fields)
+
     def test_out_of_range_or_missing_values_remain_unconfirmed(self) -> None:
         def handler(_request: httpx.Request) -> httpx.Response:
             return httpx.Response(

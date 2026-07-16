@@ -65,6 +65,7 @@ SAMPLE_PAYLOAD = {
         "climate_changes_fan_count": False,
         "recommend_investment_year": False,
     },
+    "decision_context": {"next_check_key": "operating_hours"},
 }
 
 
@@ -162,7 +163,7 @@ class OpenAIResultExplainerLiveTest(unittest.TestCase):
         self.assertTrue(result.headline_ja)
         self.assertTrue(result.interpretation_ja)
         self.assertTrue(result.condition_ja)
-        self.assertIn(result.next_check_key, {"actual_fan_count", "operating_hours"})
+        self.assertEqual(result.next_check_key, "operating_hours")
 
 
 if __name__ == "__main__":

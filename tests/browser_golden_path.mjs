@@ -128,7 +128,7 @@ async function main() {
     await retry(async () => evaluate(`
       document.readyState === 'complete'
         && document.querySelector('.landing-hero h1')?.textContent.includes('自分の牛舎から考える')
-        && document.querySelector('.primary-link')?.getAttribute('href') === '/check'
+        && document.querySelector('.primary-link')?.getAttribute('href') === '/check?future_target_cow_count=45'
     `), '入口ページの読み込みが完了しませんでした');
     assertEqual(
       await evaluate(`JSON.stringify(Array.from(document.querySelectorAll('.landing-periods span'), (item) => item.textContent.trim()))`),
@@ -140,7 +140,20 @@ async function main() {
       '入口ページの気候期間',
     );
     await evaluate(`document.querySelector('.primary-link').click()`);
-    await waitForPage(evaluate);
+    await waitForPage(evaluate, 'future_target_cow_count=45');
+
+    assertEqual(
+      await evaluate(`JSON.stringify(Array.from(document.querySelectorAll('.horizon-state-grid article'), (card) => ({
+        heading: card.querySelector('h3').textContent.trim(),
+        values: Array.from(card.querySelectorAll('dd'), (item) => item.textContent.trim()),
+      })))`),
+      JSON.stringify([
+        { heading: '現在・追加前', values: ['60頭', '20台', '10台不足'] },
+        { heading: '現在・第1期後', values: ['60頭', '15台', '5台不足'] },
+        { heading: '5年後・第1期後', values: ['45頭', '15台', '頭数基準上は不足なし'] },
+      ]),
+      '現在と5年後の分離',
+    );
 
     assertEqual(
       await evaluate(`JSON.stringify({
@@ -299,6 +312,25 @@ async function main() {
       await financialState(evaluate, 'full_coverage'),
       JSON.stringify(['8台', '24頭', '1,760,000円', '143,232円／年', '2.54kg／頭・日']),
       '入力変更後の計画台数財務',
+    );
+
+    const reductionDemoUrl = `${APP_URL}check?lactating_cows=60&lane_count=2&existing_fan_count=10&first_phase_fan_count=5&future_target_cow_count=45`;
+    await send('Page.navigate', { url: reductionDemoUrl });
+    await waitForPage(evaluate, 'future_target_cow_count=45');
+    await evaluate(`
+      document.querySelector('.coverage-control [name="confirmed_covered_cow_count"]').value = '12';
+      document.querySelector('.coverage-control button[type="submit"]').click();
+    `);
+    await waitForPage(evaluate, 'confirmed_covered_cow_count=12');
+    assertEqual(
+      await financialState(evaluate, 'first_phase'),
+      JSON.stringify(['5台', '12頭', '1,100,000円', '147,840円／年', '3.92kg／頭・日']),
+      '風速確認後の第1期再計算',
+    );
+    assertEqual(
+      await evaluate(`document.querySelector('.next-check-line').textContent.trim()`),
+      '次に確認する情報は、夏季の乳量差です。',
+      '風速確認後の次の一問',
     );
 
     const referenceUrl = `${APP_URL}check?region_ja=%E5%8D%83%E8%91%89%E5%B8%82&lactating_cows=100&lane_count=4&existing_fan_count=20&reference_mode=true`;

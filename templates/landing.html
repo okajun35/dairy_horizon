@@ -11,8 +11,11 @@
     <header class="landing-hero">
       <p class="eyebrow">Dairy Horizon</p>
       <h1><span>暑くなるこれからを、</span><span>自分の牛舎から考える</span></h1>
-      <p class="landing-lead">少ない入力から現在の不足と将来の暑熱期間を整理する、自分で判断するための指標をつくるアプリです。</p>
-      <a class="primary-link" href="/check">自分の牛舎で確認する</a>
+      <p class="landing-lead">将来の牛群規模が未確定な中で、今どこまで投資し、次に何を確認するかという、自分で判断するための指標をつくるアプリです。</p>
+      <div class="landing-actions">
+        <a class="primary-link" href="/check?future_target_cow_count=45">60頭から5年後45頭のデモを見る</a>
+        <a class="secondary-link" href="/check">自分の牛舎で確認する</a>
+      </div>
       <p class="landing-data-note">現在は千葉市の観測・気候データに対応しています。</p>
     </header>
 
@@ -21,8 +24,8 @@
       <h2 id="purpose-heading">答えを決めるのではなく、変化と判断材料を並べます</h2>
       <div class="purpose-grid">
         <article><strong>いま</strong><p>頭数と既存ファンから、現在の不足と風が届かない可能性のある牛床を確認します。</p></article>
-        <article><strong>これから</strong><p>将来の暑熱期間を幅で示し、運転日数と電気代がどう変わり得るかを確認します。</p></article>
-        <article><strong>どうするか</strong><p>そのまま、小さく始める、目安まで追加する場合を比べ、次に見る条件を整理します。</p></article>
+        <article><strong>これから</strong><p>将来の牛群規模と暑熱期間を分け、設備の過不足と運転負担を確認します。</p></article>
+        <article><strong>どうするか</strong><p>小さく始めた後、判断を確定するために次に測る一つを整理します。</p></article>
       </div>
     </section>
 
@@ -53,9 +56,9 @@
         <p>AIは入力候補と計算結果の意味を整理します。必要台数、電気代、回収条件はテストされたPythonが計算します。</p>
       </div>
       <div class="conversation-preview" aria-label="入力例">
-        <p class="chat-bubble assistant-bubble">何頭飼っていて、牛床は何列ですか？</p>
-        <p class="chat-bubble user-bubble">100頭で、牛舎は4列です。</p>
-        <p class="chat-bubble assistant-bubble">100頭・4列として受け取りました。現在のファン台数が分からなくても、参考状態から確認できます。</p>
+        <p class="chat-bubble assistant-bubble">現在の頭数と、将来考えている頭数を教えてください。</p>
+        <p class="chat-bubble user-bubble">現在60頭で、5年後は45頭を考えています。ファンは10台です。</p>
+        <p class="chat-bubble assistant-bubble">現在と5年後を分けて計算します。第1期後も現在は不足しますが、将来の頭数目安とは一致します。次に風速を確認します。</p>
       </div>
     </section>
   </main>

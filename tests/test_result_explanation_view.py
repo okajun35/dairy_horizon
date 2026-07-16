@@ -18,6 +18,7 @@ FORM_DATA = {
     "planned_fan_count": "20",
     "reference_mode": "false",
     "operating_hours_per_day": "12",
+    "future_target_cow_count": "45",
 }
 
 
@@ -48,8 +49,8 @@ class ResultExplanationViewTest(unittest.TestCase):
                     headline_ja="小さく始める案と全体案を条件で比べます。",
                     interpretation_ja="不足の改善と運転負担を分けて確認できます。",
                     condition_ja="暑熱期間の幅に応じて運転費も変わります。",
-                    next_check_key="operating_hours",
-                    next_check_ja="暑い日の実際の運転時間",
+                    next_check_key="cow_level_wind_speed",
+                    next_check_ja="設置候補範囲の牛体付近風速",
                     source_kind="ai_explanation",
                 )
 
@@ -66,6 +67,8 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertEqual(captured["climate"]["observed_baseline"]["lower_annual_days"], 97.0)  # type: ignore[index]
         self.assertAlmostEqual(captured["climate"]["periods"][0]["median_annual_days"], 104.5666666667)  # type: ignore[index]
         self.assertFalse(captured["boundaries"]["climate_changes_fan_count"])  # type: ignore[index]
+        self.assertEqual(captured["future"]["target_cow_count"], 45)  # type: ignore[index]
+        self.assertEqual(captured["decision_context"]["next_check_key"], "cow_level_wind_speed")  # type: ignore[index]
         self.assertIn("AIによる読み解き", response.text)
         self.assertIn("現在は頭数目安より10台少なく、未カバー推計は30頭です", response.text)
         self.assertIn("第1期は5台追加で15頭を新たにカバー", response.text)
@@ -73,10 +76,10 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertIn("暑い日の平均運転時間は12時間／日です", response.text)
         self.assertIn("2026〜2030年の暑熱対象日は中心目安104〜105日", response.text)
         self.assertIn("小さく始める案と全体案を条件で比べます", response.text)
-        self.assertIn("次に確認する一件</dt><dd>暑い日の実際の運転時間", response.text)
-        self.assertIn('<form class="guided-answer" method="post" action="/explain">', response.text)
-        self.assertIn('name="operating_hours_per_day" type="number"', response.text)
-        self.assertIn("この条件で再計算して読み解く", response.text)
+        self.assertIn("次に確認する一件</dt><dd>設置候補範囲の牛体付近風速", response.text)
+        self.assertIn('<form class="guided-answer" method="get" action="/check">', response.text)
+        self.assertIn('name="confirmed_covered_cow_count" type="number"', response.text)
+        self.assertIn("実測頭数で再計算", response.text)
         self.assertIn("ai_explanation", response.text)
         self.assertIn(
             '<form class="operating-hours-control" method="get" action="/check">',
@@ -103,7 +106,7 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("AI説明を利用できなかったため、計算結果から定型文を表示しています", response.text)
         self.assertIn("計算結果を条件ごとに確認します", response.text)
-        self.assertIn("次に確認する一件</dt><dd>暑い日の実際の運転時間", response.text)
+        self.assertIn("次に確認する一件</dt><dd>設置候補範囲の牛体付近風速", response.text)
         self.assertIn("template_fallback", response.text)
         self.assertNotIn("provider detail", response.text)
 

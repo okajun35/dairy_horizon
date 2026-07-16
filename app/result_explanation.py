@@ -14,10 +14,16 @@ import httpx
 NextCheckKey = Literal[
     "actual_fan_count",
     "operating_hours",
+    "future_target_cow_count",
+    "cow_level_wind_speed",
+    "summer_milk_difference",
 ]
 NEXT_CHECK_LABELS: dict[NextCheckKey, str] = {
     "actual_fan_count": "現在使っているファン台数",
     "operating_hours": "暑い日の実際の運転時間",
+    "future_target_cow_count": "5年後の対策対象頭数",
+    "cow_level_wind_speed": "設置候補範囲の牛体付近風速",
+    "summer_milk_difference": "夏季の乳量差",
 }
 NUMERIC_CLAIM_PATTERN = re.compile(
     r"[0-9０-９]|[一二三四五六七八九十百千万億兆〇零]+"
@@ -94,9 +100,9 @@ class OpenAIResultExplainer:
                 "出力文にはアラビア数字、漢数字、金額、年、台数、頭数を含めないでください。"
                 "数値は画面が別に表示します。単一案のおすすめ、最適化、投資年の推薦、"
                 "確実な回収の断定をしないでください。成立条件と難しくなる条件を説明し、"
-                "next_check_keyは結論を最も変える確認事項を一つ選んでください。"
-                "reference_modeがtrueならactual_fan_count、それ以外はoperating_hoursを"
-                "選んでください。設備見積額や見積依頼は選ばないでください。"
+                "decision_context.next_check_keyは決定論的コードが選んだ確認事項です。"
+                "同じnext_check_keyを返し、なぜ次に確認するかを説明してください。"
+                "設備見積額や見積依頼は選ばないでください。"
             ),
             "input": json.dumps(result_payload, ensure_ascii=False, separators=(",", ":")),
             "reasoning": {"effort": "none"},
@@ -124,7 +130,13 @@ class OpenAIResultExplainer:
             raw = json.loads(self._output_text(response.json()))
             if not isinstance(raw, dict):
                 raise ValueError("structured output is not an object")
-            return self._validated_explanation(raw)
+            explanation = self._validated_explanation(raw)
+            decision_context = result_payload.get("decision_context")
+            if isinstance(decision_context, Mapping):
+                expected_key = decision_context.get("next_check_key")
+                if expected_key in NEXT_CHECK_LABELS and explanation.next_check_key != expected_key:
+                    raise ValueError("model changed the deterministic next check")
+            return explanation
         except (httpx.HTTPError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ResultExplanationUnavailable("説明を生成できません。") from exc
 
@@ -175,10 +187,15 @@ class OpenAIResultExplainer:
         )
 
 
-def build_fallback_explanation(reference_mode: bool) -> ResultExplanation:
+def build_fallback_explanation(
+    reference_mode: bool,
+    next_check_key: NextCheckKey | None = None,
+) -> ResultExplanation:
     """Return a stable explanation when the API cannot be used."""
 
-    next_key: NextCheckKey = "actual_fan_count" if reference_mode else "operating_hours"
+    next_key: NextCheckKey = next_check_key or (
+        "actual_fan_count" if reference_mode else "operating_hours"
+    )
     return ResultExplanation(
         headline_ja="計算結果を条件ごとに確認します。",
         interpretation_ja="牛舎の不足と追加案の変化を、将来の運転負担とは分けて確認できます。",
