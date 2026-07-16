@@ -124,6 +124,25 @@ def _optional_operating_hours(value: str | None) -> Decimal | None:
     return hours
 
 
+def _optional_non_negative_decimal(
+    value: str | None,
+    label_ja: str,
+) -> Decimal | None:
+    if value is None or not value.strip():
+        return None
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as exc:
+        raise InputValidationError(
+            f"{label_ja}は0以上の数値で入力してください。"
+        ) from exc
+    if not parsed.is_finite() or parsed < 0:
+        raise InputValidationError(
+            f"{label_ja}は0以上の数値で入力してください。"
+        )
+    return parsed
+
+
 def _format_decimal(value: Decimal) -> str:
     formatted = format(value, "f")
     if "." in formatted:
@@ -152,7 +171,7 @@ def _rounded_int(value: Decimal) -> int:
 def _climate_plan_view(
     plan: FanPlan,
     summary: ObservationAnchoredClimateSummary,
-    operating_hours_per_day: Decimal,
+    assumptions: FinancialAssumptions,
     newly_covered_cow_count: int | None = None,
 ) -> dict[str, Any]:
     covered_cow_count = (
@@ -168,9 +187,8 @@ def _climate_plan_view(
         key: calculate_financial_screening(
             financial_plan,
             replace(
-                STANDARD_FINANCIAL_ASSUMPTIONS,
+                assumptions,
                 heat_days_per_year=days,
-                operating_hours_per_day=operating_hours_per_day,
             ),
         )
         for key, days in (
@@ -223,10 +241,10 @@ def _climate_period_view(
     summary: ObservationAnchoredClimateSummary,
     raw_model_summary: ClimatePeriodSummary,
     plans: tuple[FanPlan, ...],
-    operating_hours_per_day: Decimal,
+    assumptions: FinancialAssumptions,
     covered_cow_overrides: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    hours_per_day = operating_hours_per_day
+    hours_per_day = assumptions.operating_hours_per_day
     return {
         "key": f"{summary.start_year}_{summary.end_year}",
         "start_year": summary.start_year,
@@ -272,7 +290,7 @@ def _climate_period_view(
             _climate_plan_view(
                 plan,
                 summary,
-                operating_hours_per_day,
+                assumptions,
                 (covered_cow_overrides or {}).get(plan.key),
             )
             for plan in plans[1:]
@@ -282,7 +300,7 @@ def _climate_period_view(
 
 def _climate_background(
     plans: tuple[FanPlan, ...],
-    operating_hours_per_day: Decimal,
+    assumptions: FinancialAssumptions,
     covered_cow_overrides: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     observed = load_observed_thi_baseline(OBSERVED_THI_BASELINE_PATH)
@@ -309,8 +327,10 @@ def _climate_background(
         "available": True,
         "region_name_ja": observed.region_name_ja,
         "thi_threshold": float(observed.thi_threshold),
-        "operating_hours_per_day": float(operating_hours_per_day),
-        "operating_hours_per_day_ja": _format_decimal(operating_hours_per_day),
+        "operating_hours_per_day": float(assumptions.operating_hours_per_day),
+        "operating_hours_per_day_ja": _format_decimal(
+            assumptions.operating_hours_per_day
+        ),
         "observed_baseline": {
             "start_year": observed.start_year,
             "end_year": observed.end_year,
@@ -328,7 +348,7 @@ def _climate_background(
                 adjusted,
                 raw,
                 plans,
-                operating_hours_per_day,
+                assumptions,
                 covered_cow_overrides,
             )
             for adjusted, raw in zip(
@@ -343,7 +363,7 @@ def _climate_background(
 def _financial_plan_view(
     plan: FanPlan,
     assumptions: FinancialAssumptions,
-    operating_hours_source_kind: str,
+    has_user_financial_input: bool,
     newly_covered_cow_count: int | None = None,
 ) -> dict[str, Any]:
     covered_cow_count = (
@@ -368,10 +388,10 @@ def _financial_plan_view(
         status_note_ja = "現在の標準条件では回収に必要な乳量を計算できません。"
     else:
         status_note_ja = (
-            "入力した運転時間とその他の標準仮定による粗い比較です。"
-            if operating_hours_source_kind == "user_input"
+            "入力した条件とその他の標準仮定による粗い比較です。"
+            if has_user_financial_input
             else "標準仮定による粗い比較です。"
-        ) + "実際の見積額と夏季乳量差で確認します。"
+        ) + "牛体付近風速と夏季の防止乳量差で確認します。"
     return {
         "key": plan.key,
         "label_ja": plan.label_ja,
@@ -403,20 +423,17 @@ def _financial_plan_view(
 
 def _financial_comparison(
     plans: tuple[FanPlan, ...],
-    operating_hours_per_day: Decimal,
-    operating_hours_source_kind: str,
+    assumptions: FinancialAssumptions,
+    input_source_kinds: dict[str, str],
     covered_cow_overrides: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    assumptions = replace(
-        STANDARD_FINANCIAL_ASSUMPTIONS,
-        operating_hours_per_day=operating_hours_per_day,
-    )
+    has_user_financial_input = "user_input" in input_source_kinds.values()
     return {
         "plans": tuple(
             _financial_plan_view(
                 plan,
                 assumptions,
-                operating_hours_source_kind,
+                has_user_financial_input,
                 (covered_cow_overrides or {}).get(plan.key),
             )
             for plan in plans[1:]
@@ -435,7 +452,7 @@ def _financial_comparison(
             {
                 "label": "暑い日の平均運転時間",
                 "value": f"{_format_decimal(assumptions.operating_hours_per_day)}時間／日",
-                "kind": operating_hours_source_kind,
+                "kind": input_source_kinds["operating_hours_per_day"],
             },
             {
                 "label": "標準の暑熱対策日数",
@@ -445,7 +462,7 @@ def _financial_comparison(
             {
                 "label": "電力量単価",
                 "value": f"{assumptions.electricity_price_yen_per_kwh}円／kWh",
-                "kind": "industry_guidance",
+                "kind": input_source_kinds["electricity_price_yen_per_kwh"],
             },
             {
                 "label": "基本料金単価",
@@ -472,16 +489,18 @@ def _financial_comparison(
                 "kind": "industry_guidance",
             },
             {
-                "label": "乳価",
+                "label": "実現乳価",
                 "value": f"{assumptions.milk_price_yen_per_kg}円／kg",
-                "kind": "industry_guidance",
+                "kind": input_source_kinds["milk_price_yen_per_kg"],
             },
             {
-                "label": "防げる乳量",
+                "label": "夏季の防止乳量差",
                 "value": (
                     f"{assumptions.avoided_milk_loss_kg_per_cow_day}kg／頭・日"
                 ),
-                "kind": "demo_assumption",
+                "kind": input_source_kinds[
+                    "avoided_milk_loss_kg_per_cow_day"
+                ],
             },
         ),
     }
@@ -494,7 +513,7 @@ def _annual_recovery_snapshot(
     plan: FanPlan,
     covered_cow_count: int,
     heat_days_per_year: Decimal,
-    operating_hours_per_day: Decimal,
+    assumptions: FinancialAssumptions,
 ) -> dict[str, Any]:
     """Build one annual view while keeping equipment and coverage fixed."""
 
@@ -504,9 +523,8 @@ def _annual_recovery_snapshot(
             newly_covered_cow_count=covered_cow_count,
         ),
         replace(
-            STANDARD_FINANCIAL_ASSUMPTIONS,
+            assumptions,
             heat_days_per_year=heat_days_per_year,
-            operating_hours_per_day=operating_hours_per_day,
         ),
     )
     return {
@@ -537,7 +555,7 @@ def _two_horizon_financial_view(
     *,
     first_phase_plan: FanPlan,
     covered_cow_count: int,
-    operating_hours_per_day: Decimal,
+    assumptions: FinancialAssumptions,
     climate_background: dict[str, Any],
     future_target_cow_count: int | None,
 ) -> dict[str, Any] | None:
@@ -567,7 +585,7 @@ def _two_horizon_financial_view(
             plan=first_phase_plan,
             covered_cow_count=covered_cow_count,
             heat_days_per_year=current_heat_days,
-            operating_hours_per_day=operating_hours_per_day,
+            assumptions=assumptions,
         ),
         "future": _annual_recovery_snapshot(
             label_ja="5年後条件での年間回収目安",
@@ -578,7 +596,7 @@ def _two_horizon_financial_view(
             plan=first_phase_plan,
             covered_cow_count=covered_cow_count,
             heat_days_per_year=future_heat_days,
-            operating_hours_per_day=operating_hours_per_day,
+            assumptions=assumptions,
         ),
         "additional_fan_count": first_phase_plan.additional_fan_count,
         "covered_cow_count": covered_cow_count,
@@ -803,8 +821,8 @@ def _evidence(
     inputs: BarnInput,
     current_state: CurrentBarnState,
     first_phase_fan_count: int,
-    operating_hours_per_day: Decimal,
-    operating_hours_source_kind: str,
+    financial_assumptions: FinancialAssumptions,
+    input_source_kinds: dict[str, str],
     *,
     reference_mode: bool = False,
     future_target_cow_count: int | None = None,
@@ -878,7 +896,10 @@ def _evidence(
         {"item": "ファンのカバー目安", "value": "3頭／台・牛体付近2m/s以上", "kind": current_state.coverage_basis_kind, "source": "全酪連 COW BELL No.178『暑熱対策の設備投資を考える』pp.6-8", "note": "実際の間隔・風量・設置位置で必ず確認します。"},
         {"item": "頭数基準の台数目安", "value": f"{current_state.guideline_fan_count}台", "kind": "industry_guidance", "source": "搾乳牛頭数を3頭／台で割り、全体で切り上げ", "note": "投資試算用の目安です。列数による自動補正は行いません。"},
         {"item": "法定耐用年数", "value": f"{STANDARD_USEFUL_LIFE_YEARS}年", "kind": "industry_guidance", "source": "全酪連 COW BELL No.178の標準計算例", "note": "採算計算の年割りに使います。実際の故障年や交換年ではありません。"},
-        {"item": "暑い日の平均運転時間", "value": f"{_format_decimal(operating_hours_per_day)}時間／日", "kind": operating_hours_source_kind, "source": "利用者が結果画面で入力" if operating_hours_source_kind == "user_input" else "全酪連標準計算例", "note": "電力量と回収条件に使用します。THI対象日数、ファン台数、設備費、投資年は変更しません。"},
+        {"item": "暑い日の平均運転時間", "value": f"{_format_decimal(financial_assumptions.operating_hours_per_day)}時間／日", "kind": input_source_kinds["operating_hours_per_day"], "source": "利用者が結果画面で入力" if input_source_kinds["operating_hours_per_day"] == "user_input" else "全酪連標準計算例", "note": "電力量と回収条件に使用します。THI対象日数、ファン台数、設備費、投資年は変更しません。"},
+        {"item": "夏季の防止乳量差", "value": f"{_format_decimal(financial_assumptions.avoided_milk_loss_kg_per_cow_day or Decimal('0'))}kg／頭・日", "kind": input_source_kinds["avoided_milk_loss_kg_per_cow_day"], "source": "利用者入力" if input_source_kinds["avoided_milk_loss_kg_per_cow_day"] == "user_input" else "比較用デモ仮定", "note": "設備効果の保証値ではなく、年間便益と払える目安へ使用します。"},
+        {"item": "実現乳価", "value": f"{_format_decimal(financial_assumptions.milk_price_yen_per_kg)}円／kg", "kind": input_source_kinds["milk_price_yen_per_kg"], "source": "利用者入力" if input_source_kinds["milk_price_yen_per_kg"] == "user_input" else "全酪連標準計算例", "note": "年間便益と回収に必要な防止乳量へ使用します。"},
+        {"item": "電力量単価", "value": f"{_format_decimal(financial_assumptions.electricity_price_yen_per_kwh)}円／kWh", "kind": input_source_kinds["electricity_price_yen_per_kwh"], "source": "利用者入力" if input_source_kinds["electricity_price_yen_per_kwh"] == "user_input" else "全酪連標準計算例", "note": "追加ファンの年間電気代へ使用します。"},
         {"item": "省電力100cm級の比較仕様", "value": "0.25kW／台・標準型と同じ台数", "kind": "manufacturer_spec", "source": "利用者提供『乳牛の暑熱対策チャレンジ ガイドブックin十勝』資材一覧", "note": "台数は比較用デモ仮定です。カバー範囲と回収条件は未評価です。"},
         {"item": "大型高風量型の比較仕様", "value": "1.055kW／台・2台", "kind": "manufacturer_spec", "source": "利用者提供『乳牛の暑熱対策チャレンジ ガイドブックin十勝』資材一覧", "note": "2台は比較用デモ仮定です。必要台数とカバー範囲は未評価です。"},
     ) + comparison_rows + (
@@ -899,6 +920,9 @@ def _dashboard(
     operating_hours_per_day: Decimal | None = None,
     future_target_cow_count: int | None = None,
     confirmed_covered_cow_count: int | None = None,
+    avoided_milk_loss_kg_per_cow_day: Decimal | None = None,
+    milk_price_yen_per_kg: Decimal | None = None,
+    electricity_price_yen_per_kwh: Decimal | None = None,
 ) -> dict[str, Any]:
     inputs = BarnInput(
         lactating_cows=lactating_cows,
@@ -936,19 +960,52 @@ def _dashboard(
     operating_hours_source_kind = (
         "user_input" if hours_were_entered else "industry_guidance"
     )
+    input_source_kinds = {
+        "operating_hours_per_day": operating_hours_source_kind,
+        "avoided_milk_loss_kg_per_cow_day": (
+            "user_input"
+            if avoided_milk_loss_kg_per_cow_day is not None
+            else "demo_assumption"
+        ),
+        "milk_price_yen_per_kg": (
+            "user_input"
+            if milk_price_yen_per_kg is not None
+            else "industry_guidance"
+        ),
+        "electricity_price_yen_per_kwh": (
+            "user_input"
+            if electricity_price_yen_per_kwh is not None
+            else "industry_guidance"
+        ),
+    }
     financial_assumptions = replace(
         STANDARD_FINANCIAL_ASSUMPTIONS,
         operating_hours_per_day=effective_operating_hours,
+        avoided_milk_loss_kg_per_cow_day=(
+            avoided_milk_loss_kg_per_cow_day
+            if avoided_milk_loss_kg_per_cow_day is not None
+            else STANDARD_FINANCIAL_ASSUMPTIONS.avoided_milk_loss_kg_per_cow_day
+        ),
+        milk_price_yen_per_kg=(
+            milk_price_yen_per_kg
+            if milk_price_yen_per_kg is not None
+            else STANDARD_FINANCIAL_ASSUMPTIONS.milk_price_yen_per_kg
+        ),
+        electricity_price_yen_per_kwh=(
+            electricity_price_yen_per_kwh
+            if electricity_price_yen_per_kwh is not None
+            else STANDARD_FINANCIAL_ASSUMPTIONS.electricity_price_yen_per_kwh
+        ),
     )
     financial_comparison = _financial_comparison(
         navigation.plans,
-        effective_operating_hours,
-        operating_hours_source_kind,
+        financial_assumptions,
+        input_source_kinds,
         covered_cow_overrides,
     )
     climate_background = _climate_background(
         navigation.plans,
-        effective_operating_hours,
+        financial_assumptions,
         covered_cow_overrides,
     )
     return {
@@ -961,7 +1018,7 @@ def _dashboard(
             covered_cow_count=(
                 two_horizon_screening.covered_cow_count_for_finance
             ),
-            operating_hours_per_day=effective_operating_hours,
+            assumptions=financial_assumptions,
             climate_background=climate_background,
             future_target_cow_count=future_target_cow_count,
         ),
@@ -970,6 +1027,42 @@ def _dashboard(
             "value_ja": _format_decimal(effective_operating_hours),
             "source_kind": operating_hours_source_kind,
             "is_user_input": hours_were_entered,
+        },
+        "financial_inputs": {
+            "avoided_milk_loss_kg_per_cow_day": {
+                "value": float(
+                    financial_assumptions.avoided_milk_loss_kg_per_cow_day
+                    or Decimal("0")
+                ),
+                "value_ja": _format_decimal(
+                    financial_assumptions.avoided_milk_loss_kg_per_cow_day
+                    or Decimal("0")
+                ),
+                "source_kind": input_source_kinds[
+                    "avoided_milk_loss_kg_per_cow_day"
+                ],
+                "is_user_input": avoided_milk_loss_kg_per_cow_day is not None,
+            },
+            "milk_price_yen_per_kg": {
+                "value": float(financial_assumptions.milk_price_yen_per_kg),
+                "value_ja": _format_decimal(
+                    financial_assumptions.milk_price_yen_per_kg
+                ),
+                "source_kind": input_source_kinds["milk_price_yen_per_kg"],
+                "is_user_input": milk_price_yen_per_kg is not None,
+            },
+            "electricity_price_yen_per_kwh": {
+                "value": float(
+                    financial_assumptions.electricity_price_yen_per_kwh
+                ),
+                "value_ja": _format_decimal(
+                    financial_assumptions.electricity_price_yen_per_kwh
+                ),
+                "source_kind": input_source_kinds[
+                    "electricity_price_yen_per_kwh"
+                ],
+                "is_user_input": electricity_price_yen_per_kwh is not None,
+            },
         },
         "two_horizon_screening": two_horizon_screening,
         "equipment_branches": _equipment_branch_views(
@@ -1003,8 +1096,8 @@ def _dashboard(
             inputs,
             navigation.current_state,
             navigation.plans[1].additional_fan_count,
-            effective_operating_hours,
-            operating_hours_source_kind,
+            financial_assumptions,
+            input_source_kinds,
             reference_mode=reference_mode,
             future_target_cow_count=future_target_cow_count,
             confirmed_covered_cow_count=confirmed_covered_cow_count,
@@ -1074,11 +1167,23 @@ def check(
     reference_mode: bool = Query(False),
     future_target_cow_count: int | None = Query(None, ge=1, le=300),
     confirmed_covered_cow_count: int | None = Query(None, ge=0, le=300),
+    avoided_milk_loss_kg_per_cow_day: str | None = Query(None),
+    milk_price_yen_per_kg: str | None = Query(None),
+    electricity_price_yen_per_kwh: str | None = Query(None),
 ) -> HTMLResponse:
     try:
         region_ja = SUPPORTED_REGION_JA
         parsed_planned_fan_count = _optional_int(planned_fan_count, "今回の計画総台数")
         parsed_operating_hours = _optional_operating_hours(operating_hours_per_day)
+        parsed_avoided_milk = _optional_non_negative_decimal(
+            avoided_milk_loss_kg_per_cow_day, "夏季の防止乳量差"
+        )
+        parsed_milk_price = _optional_non_negative_decimal(
+            milk_price_yen_per_kg, "実現乳価"
+        )
+        parsed_electricity_price = _optional_non_negative_decimal(
+            electricity_price_yen_per_kwh, "電力量単価"
+        )
         dashboard = _dashboard(
             lactating_cows,
             lane_count,
@@ -1091,6 +1196,9 @@ def check(
             parsed_operating_hours,
             future_target_cow_count,
             confirmed_covered_cow_count,
+            parsed_avoided_milk,
+            parsed_milk_price,
+            parsed_electricity_price,
         )
         error = None
     except (AdaptationInputError, InputValidationError) as exc:
@@ -1123,6 +1231,9 @@ def explain_screening_result(
     reference_mode: bool = Form(False),
     future_target_cow_count: int | None = Form(None),
     confirmed_covered_cow_count: int | None = Form(None),
+    avoided_milk_loss_kg_per_cow_day: str | None = Form(None),
+    milk_price_yen_per_kg: str | None = Form(None),
+    electricity_price_yen_per_kwh: str | None = Form(None),
     explainer: OpenAIResultExplainer = Depends(get_result_explainer),
 ) -> HTMLResponse:
     region_ja = SUPPORTED_REGION_JA
@@ -1130,6 +1241,15 @@ def explain_screening_result(
         planned_fan_count, "今回の計画総台数"
     )
     parsed_operating_hours = _optional_operating_hours(operating_hours_per_day)
+    parsed_avoided_milk = _optional_non_negative_decimal(
+        avoided_milk_loss_kg_per_cow_day, "夏季の防止乳量差"
+    )
+    parsed_milk_price = _optional_non_negative_decimal(
+        milk_price_yen_per_kg, "実現乳価"
+    )
+    parsed_electricity_price = _optional_non_negative_decimal(
+        electricity_price_yen_per_kwh, "電力量単価"
+    )
     dashboard = _dashboard(
         lactating_cows,
         lane_count,
@@ -1142,6 +1262,9 @@ def explain_screening_result(
         parsed_operating_hours,
         future_target_cow_count,
         confirmed_covered_cow_count,
+        parsed_avoided_milk,
+        parsed_milk_price,
+        parsed_electricity_price,
     )
     payload = _result_explanation_payload(dashboard)
     api_failed = False
