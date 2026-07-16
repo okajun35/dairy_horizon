@@ -32,10 +32,10 @@ class ResultExplanationViewTest(unittest.TestCase):
 
         app.dependency_overrides[get_result_explainer] = lambda: UnexpectedExplainer()
 
-        response = TestClient(app).get("/")
+        response = TestClient(app).get("/check")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("AIで計算結果を読み解く", response.text)
+        self.assertIn("AIにこの結果を読み解いてもらう", response.text)
         self.assertNotIn("AIによる読み解き", response.text)
 
     def test_explain_route_passes_deterministic_payload_and_renders_answer(self) -> None:
@@ -48,8 +48,8 @@ class ResultExplanationViewTest(unittest.TestCase):
                     headline_ja="小さく始める案と全体案を条件で比べます。",
                     interpretation_ja="不足の改善と運転負担を分けて確認できます。",
                     condition_ja="暑熱期間の幅に応じて運転費も変わります。",
-                    next_check_key="equipment_quote",
-                    next_check_ja="実際の設備見積額",
+                    next_check_key="operating_hours",
+                    next_check_ja="暑い日の実際の運転時間",
                     source_kind="ai_explanation",
                 )
 
@@ -73,18 +73,21 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertIn("暑い日の平均運転時間は12時間／日です", response.text)
         self.assertIn("2026〜2030年の暑熱対象日は中心目安104〜105日", response.text)
         self.assertIn("小さく始める案と全体案を条件で比べます", response.text)
-        self.assertIn("次に確認する一件</dt><dd>実際の設備見積額", response.text)
+        self.assertIn("次に確認する一件</dt><dd>暑い日の実際の運転時間", response.text)
+        self.assertIn('<form class="guided-answer" method="post" action="/explain">', response.text)
+        self.assertIn('name="operating_hours_per_day" type="number"', response.text)
+        self.assertIn("この条件で再計算して読み解く", response.text)
         self.assertIn("ai_explanation", response.text)
         self.assertIn(
-            '<form class="operating-hours-control" method="get" action="/">',
+            '<form class="operating-hours-control" method="get" action="/check">',
             response.text,
         )
         self.assertIn(
-            '<form class="first-phase-control" method="get" action="/">',
+            '<form class="first-phase-control" method="get" action="/check">',
             response.text,
         )
         self.assertIn(
-            '<form class="quick-inputs" method="get" action="/">',
+            '<form class="quick-inputs" method="get" action="/check">',
             response.text,
         )
 
@@ -100,6 +103,7 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("AI説明を利用できなかったため、計算結果から定型文を表示しています", response.text)
         self.assertIn("計算結果を条件ごとに確認します", response.text)
+        self.assertIn("次に確認する一件</dt><dd>暑い日の実際の運転時間", response.text)
         self.assertIn("template_fallback", response.text)
         self.assertNotIn("provider detail", response.text)
 

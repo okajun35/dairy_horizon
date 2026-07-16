@@ -13,16 +13,10 @@ import httpx
 
 NextCheckKey = Literal[
     "actual_fan_count",
-    "equipment_quote",
-    "summer_milk_difference",
-    "current_milk_price",
     "operating_hours",
 ]
 NEXT_CHECK_LABELS: dict[NextCheckKey, str] = {
     "actual_fan_count": "現在使っているファン台数",
-    "equipment_quote": "実際の設備見積額",
-    "summer_milk_difference": "夏季の実際の乳量差",
-    "current_milk_price": "現在の乳価",
     "operating_hours": "暑い日の実際の運転時間",
 }
 NUMERIC_CLAIM_PATTERN = re.compile(
@@ -101,9 +95,8 @@ class OpenAIResultExplainer:
                 "数値は画面が別に表示します。単一案のおすすめ、最適化、投資年の推薦、"
                 "確実な回収の断定をしないでください。成立条件と難しくなる条件を説明し、"
                 "next_check_keyは結論を最も変える確認事項を一つ選んでください。"
-                "reference_modeがtrueならactual_fan_countを優先し、それ以外は"
-                "equipment_quote、summer_milk_difference、current_milk_price、"
-                "operating_hoursの順を基本にしてください。"
+                "reference_modeがtrueならactual_fan_count、それ以外はoperating_hoursを"
+                "選んでください。設備見積額や見積依頼は選ばないでください。"
             ),
             "input": json.dumps(result_payload, ensure_ascii=False, separators=(",", ":")),
             "reasoning": {"effort": "none"},
@@ -185,7 +178,7 @@ class OpenAIResultExplainer:
 def build_fallback_explanation(reference_mode: bool) -> ResultExplanation:
     """Return a stable explanation when the API cannot be used."""
 
-    next_key: NextCheckKey = "actual_fan_count" if reference_mode else "equipment_quote"
+    next_key: NextCheckKey = "actual_fan_count" if reference_mode else "operating_hours"
     return ResultExplanation(
         headline_ja="計算結果を条件ごとに確認します。",
         interpretation_ja="牛舎の不足と追加案の変化を、将来の運転負担とは分けて確認できます。",

@@ -58,7 +58,7 @@ class NaturalInputPathwayIntegrationTest(unittest.TestCase):
         )
         unconfirmed_payload = _viewer_payload(candidate_response.text)
         confirmed_values = _candidate_form_values(candidate_response.text)
-        confirmed_response = client.get("/", params=confirmed_values)
+        confirmed_response = client.get("/check", params=confirmed_values)
         confirmed_payload = _viewer_payload(confirmed_response.text)
         paths = _paths_by_key(confirmed_payload)
 
@@ -83,7 +83,7 @@ class NaturalInputPathwayIntegrationTest(unittest.TestCase):
 
     def test_later_year_and_custom_first_phase_stay_synchronized_after_confirmation(self) -> None:
         response = TestClient(app).get(
-            "/",
+            "/check",
             params={
                 "region_ja": "十勝",
                 "lactating_cows": 75,
@@ -110,7 +110,7 @@ class NaturalInputPathwayIntegrationTest(unittest.TestCase):
 
     def test_confirmed_no_shortage_input_has_no_investment_event_or_false_pending_state(self) -> None:
         response = TestClient(app).get(
-            "/",
+            "/check",
             params={
                 "region_ja": "千葉市",
                 "lactating_cows": 60,

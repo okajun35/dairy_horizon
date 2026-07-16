@@ -21,7 +21,7 @@ def _financial_card(response_text: str, plan_key: str) -> str:
 
 class FinancialScreeningViewTest(unittest.TestCase):
     def test_standard_first_phase_and_guideline_plans_are_compared(self) -> None:
-        response = TestClient(app).get("/")
+        response = TestClient(app).get("/check")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("追加案の費用と回収条件を比べる", response.text)
@@ -44,7 +44,7 @@ class FinancialScreeningViewTest(unittest.TestCase):
 
     def test_financial_cards_follow_user_changed_plan_counts(self) -> None:
         response = TestClient(app).get(
-            "/?lactating_cows=60&lane_count=2&existing_fan_count=10"
+            "/check?lactating_cows=60&lane_count=2&existing_fan_count=10"
             "&first_phase_fan_count=3&planned_fan_count=18"
         )
 
@@ -62,7 +62,7 @@ class FinancialScreeningViewTest(unittest.TestCase):
         self.assertIn("年間電気代</dt><dd>236,544円", planned)
 
     def test_user_operating_hours_update_cost_and_recovery_but_not_capex(self) -> None:
-        response = TestClient(app).get("/?operating_hours_per_day=12")
+        response = TestClient(app).get("/check?operating_hours_per_day=12")
 
         self.assertEqual(response.status_code, 200)
         first_phase = _financial_card(response.text, "first_phase")
@@ -77,7 +77,7 @@ class FinancialScreeningViewTest(unittest.TestCase):
         self.assertIn("利用者入力", response.text)
 
     def test_invalid_operating_hours_use_safe_error_and_standard_fallback(self) -> None:
-        response = TestClient(app).get("/?operating_hours_per_day=25")
+        response = TestClient(app).get("/check?operating_hours_per_day=25")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("運転時間は0〜24時間で入力してください", response.text)
@@ -85,7 +85,7 @@ class FinancialScreeningViewTest(unittest.TestCase):
         self.assertIn('value="24"', response.text)
 
     def test_zero_operating_hours_keeps_basic_charge_and_hides_recovery_claim(self) -> None:
-        response = TestClient(app).get("/?operating_hours_per_day=0")
+        response = TestClient(app).get("/check?operating_hours_per_day=0")
 
         first_phase = _financial_card(response.text, "first_phase")
         self.assertIn("年間電気代</dt><dd>31,200円", first_phase)
@@ -94,7 +94,7 @@ class FinancialScreeningViewTest(unittest.TestCase):
 
     def test_no_investment_uses_safe_japanese_display(self) -> None:
         response = TestClient(app).get(
-            "/?lactating_cows=60&lane_count=2&existing_fan_count=20"
+            "/check?lactating_cows=60&lane_count=2&existing_fan_count=20"
         )
 
         for plan_key in ("first_phase", "full_coverage"):
@@ -108,7 +108,7 @@ class FinancialScreeningViewTest(unittest.TestCase):
 
     def test_standard_assumptions_and_reference_limit_are_explicit(self) -> None:
         response = TestClient(app).get(
-            "/?lactating_cows=100&lane_count=4&existing_fan_count=20&reference_mode=true"
+            "/check?lactating_cows=100&lane_count=4&existing_fan_count=20&reference_mode=true"
         )
 
         self.assertIn("参考状態から追加する場合の標準試算", response.text)

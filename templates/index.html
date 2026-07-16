@@ -19,19 +19,24 @@
   {% set reference_mode = dashboard.input_mode == 'guideline_reference' %}
   {% set operating = dashboard.operating_hours %}
   <main>
-    <header class="intro">
+    <header class="intro check-intro">
+      <a class="back-link" href="/">Dairy Horizonの主旨へ戻る</a>
       <p class="eyebrow">Dairy Horizon</p>
-      <h1>暑熱対策を、牛舎から考える</h1>
-      <p>いま足りない場所と、小さく始める次の一手を確認します。</p>
+      <h1>AIと一緒に条件を整理する</h1>
+      <p>分かる範囲から始め、計算結果と将来の見通しを一つずつ確認します。</p>
     </header>
 
-    <section class="natural-input" aria-labelledby="natural-input-heading">
-      <p class="section-kicker">30秒入力</p>
-      <h2 id="natural-input-heading">分かる範囲を文章で入力</h2>
-      <form method="post" action="/interpret">
-        <label for="farm-description">農場の条件</label>
-        <textarea id="farm-description" name="farm_description" maxlength="2000" required placeholder="例：千葉市で搾乳牛60頭、牛床は2列、既存ファンは10台です">{{ farm_description }}</textarea>
-        <button type="submit">入力候補を読み取る</button>
+    <section class="natural-input guided-chat" aria-labelledby="natural-input-heading">
+      <p class="section-kicker">最初の確認</p>
+      <h2 id="natural-input-heading">分かる範囲を文章で教えてください</h2>
+      <div class="chat-bubble assistant-bubble">
+        <p>千葉市のデータを使います。飼っている頭数、牛床の列数、現在のファン台数を、分かる範囲で入力してください。</p>
+        <small>分からない項目は、参考値を明示して先へ進めます。</small>
+      </div>
+      <form class="chat-composer" method="post" action="/interpret">
+        <label for="farm-description">あなたの農場について</label>
+        <textarea id="farm-description" name="farm_description" maxlength="2000" required placeholder="例：100頭飼っていて、牛舎は4列です">{{ farm_description }}</textarea>
+        <button type="submit">AIに伝える</button>
       </form>
       <p class="input-note">入力内容はOpenAI APIへ送信されます。設備価格などは推測せず、不明な項目は後から確認します。</p>
       {% if natural_input_error %}<p class="error" role="alert">{{ natural_input_error }}</p>{% endif %}
@@ -39,7 +44,7 @@
         <div class="candidate-confirmation">
           <h3>AIが読み取った候補（未確認）</h3>
           <p>読み取れた値と標準設定を確認できます。不明な値を現在値としては扱いません。</p>
-          <form class="candidate-fields" method="get" action="/">
+          <form class="candidate-fields" method="get" action="/check">
             <label>地域<input value="{{ candidate.region_ja }}" disabled aria-describedby="candidate-region-availability-note"><input name="region_ja" type="hidden" value="{{ candidate.region_ja }}"><small id="candidate-region-availability-note">{{ candidate.region_note }}</small></label>
             <label>搾乳牛頭数<input name="lactating_cows" type="number" min="1" max="300" value="{{ candidate.lactating_cows or '' }}" required><small>{% if candidate.lactating_cows is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
             <label>牛床列数<input name="lane_count" type="number" min="1" max="6" value="{{ candidate.lane_count or '' }}" required><small>{% if candidate.lane_count is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
@@ -51,7 +56,7 @@
             <div class="reference-option">
               <p><strong>現在使っているファンは何台ですか？</strong></p>
               <p>分からない場合は、頭数基準の{{ candidate.reference_fan_count }}台を配置した参考状態まで先に確認できます。現在の台数ではありませんが、参考状態として不足を評価します。</p>
-              <form method="get" action="/">
+              <form method="get" action="/check">
                 <input name="region_ja" type="hidden" value="{{ candidate.region_ja }}">
                 <input name="lactating_cows" type="hidden" value="{{ candidate.lactating_cows }}">
                 <input name="lane_count" type="hidden" value="{{ candidate.lane_count }}">
@@ -65,7 +70,9 @@
       {% endif %}
     </section>
 
-    <form class="quick-inputs" method="get" action="/">
+    <details class="manual-inputs">
+      <summary><strong>数字で直接入力する</strong><span> AIを使わずに4項目を変更できます</span></summary>
+    <form class="quick-inputs" method="get" action="/check">
       <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
       {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
       {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
@@ -82,7 +89,68 @@
         <button type="submit">牛舎を更新</button>
       {% endif %}
     </form>
+    </details>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+    <section class="result-explanation guide-conversation" aria-labelledby="result-explanation-heading">
+      <div class="chat-bubble assistant-bubble">
+        <p class="section-kicker">計算結果の案内</p>
+        <h2 id="result-explanation-heading">まず現在、次に将来の変化を確認します</h2>
+        <p>{% if reference_mode %}現在のファン台数が未確認なので、頭数基準の参考状態を表示しています。{% else %}現在は頭数基準の目安に対して{{ current.guideline_gap_fan_count }}台の差があり、未カバー推計は{{ current.estimated_uncovered_cow_ids|length }}頭です。{% endif %}</p>
+        <p>千葉市のTHI 72以上の日数は、現在相当と2026〜2030年、2031〜2034年を期間で比較します。気候からファン台数は増減させません。</p>
+      </div>
+      <form method="post" action="/explain">
+        <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
+        <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
+        <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
+        <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
+        <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
+        <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
+        <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
+        {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
+        <input name="reference_mode" type="hidden" value="{{ 'true' if reference_mode else 'false' }}">
+        <button type="submit">{% if dashboard.result_explanation %}読み解きを更新{% else %}AIにこの結果を読み解いてもらう{% endif %}</button>
+      </form>
+      {% if dashboard.result_explanation %}
+        <div class="explanation-answer chat-bubble assistant-bubble">
+          <p class="section-kicker">AIによる読み解き</p>
+          {% if dashboard.result_explanation.api_failed %}<p class="explanation-fallback-note">AI説明を利用できなかったため、計算結果から定型文を表示しています。</p>{% endif %}
+          <ul class="explanation-facts">
+            {% for fact in dashboard.result_explanation.facts_ja %}<li>{{ fact }}</li>{% endfor %}
+          </ul>
+          <h3>{{ dashboard.result_explanation.headline_ja }}</h3>
+          <p>{{ dashboard.result_explanation.interpretation_ja }}</p>
+          <p>{{ dashboard.result_explanation.condition_ja }}</p>
+          <dl><div><dt>次に確認する一件</dt><dd>{{ dashboard.result_explanation.next_check_ja }}</dd></div></dl>
+          {% if dashboard.result_explanation.next_check_key == 'operating_hours' %}
+            <form class="guided-answer" method="post" action="/explain">
+              <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
+              <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
+              <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
+              <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
+              <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
+              <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
+              <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
+              <input name="reference_mode" type="hidden" value="false">
+              <label>暑い日の平均運転時間<span><input name="operating_hours_per_day" type="number" min="0" max="24" step="0.5" value="{{ operating.value_ja }}"> 時間／日</span></label>
+              <button type="submit">この条件で再計算して読み解く</button>
+              <small>分からない場合は、標準の{{ operating.value_ja }}時間／日のまま先へ進めます。</small>
+            </form>
+          {% elif dashboard.result_explanation.next_check_key == 'actual_fan_count' %}
+            <form class="guided-answer" method="get" action="/check">
+              <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
+              <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
+              <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
+              <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
+              <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
+              <label>現在使っているファン台数<span><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}"> 台</span></label>
+              <button type="submit">現在の台数として再計算</button>
+            </form>
+          {% endif %}
+          <small class="source-kind">{{ dashboard.result_explanation.source_kind }}</small>
+        </div>
+      {% endif %}
+    </section>
 
     <section class="barn-comparison" aria-labelledby="barn-heading">
       <div class="comparison-row">
@@ -124,7 +192,7 @@
               <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
             {% endfor %}
           </div>
-          <form class="first-phase-control" method="get" action="/">
+          <form class="first-phase-control" method="get" action="/check">
             <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
             <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
             <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
@@ -171,7 +239,7 @@
       <p class="section-kicker">暑熱期間の背景</p>
       <h2 id="climate-heading">将来の暑熱期間は、運転日数と電力費の背景です</h2>
       <p class="climate-intro">{{ dashboard.climate_background.region_name_ja }}の気象庁観測を現在相当の基準にし、共通するCMIP6 6モデルごとに「将来期間−2020〜2025年モデル基準」を加えました。日平均THI {{ dashboard.climate_background.thi_threshold|int }}以上の日数であり、特定年の確定予報ではありません。この情報からファン台数や投資年は変更しません。</p>
-      <form class="operating-hours-control" method="get" action="/">
+      <form class="operating-hours-control" method="get" action="/check">
         <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
         <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
         <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
@@ -259,38 +327,6 @@
         </dl>
         <p class="financial-source">出典：全酪連 COW BELL No.178「暑熱対策の設備投資を考える」の標準計算例。防げる乳量3.0kg／頭・日は効果保証ではなく、払える目安を比較するためのデモ仮定です。法定耐用年数7年は年割りに使い、故障年や交換年を意味しません。</p>
       </details>
-    </section>
-
-    <section class="result-explanation" aria-labelledby="result-explanation-heading">
-      <p class="section-kicker">結果の読み解き</p>
-      <h2 id="result-explanation-heading">AIで計算結果を読み解く</h2>
-      <p>牛舎・THI・財務の計算済み結果だけをOpenAI APIへ送り、成立条件と次の確認事項を平易に整理します。数値はAIに計算させません。</p>
-      <form method="post" action="/explain">
-        <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-        <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-        <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-        <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-        <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-        <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-        <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
-        {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
-        <input name="reference_mode" type="hidden" value="{{ 'true' if reference_mode else 'false' }}">
-        <button type="submit">{% if dashboard.result_explanation %}読み解きを更新{% else %}AIで結果を読み解く{% endif %}</button>
-      </form>
-      {% if dashboard.result_explanation %}
-        <div class="explanation-answer">
-          <p class="section-kicker">AIによる読み解き</p>
-          {% if dashboard.result_explanation.api_failed %}<p class="explanation-fallback-note">AI説明を利用できなかったため、計算結果から定型文を表示しています。</p>{% endif %}
-          <ul class="explanation-facts">
-            {% for fact in dashboard.result_explanation.facts_ja %}<li>{{ fact }}</li>{% endfor %}
-          </ul>
-          <h3>{{ dashboard.result_explanation.headline_ja }}</h3>
-          <p>{{ dashboard.result_explanation.interpretation_ja }}</p>
-          <p>{{ dashboard.result_explanation.condition_ja }}</p>
-          <dl><div><dt>次に確認する一件</dt><dd>{{ dashboard.result_explanation.next_check_ja }}</dd></div></dl>
-          <small class="source-kind">{{ dashboard.result_explanation.source_kind }}</small>
-        </div>
-      {% endif %}
     </section>
 
     {% if reference_mode %}

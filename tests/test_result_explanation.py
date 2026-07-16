@@ -81,7 +81,7 @@ class OpenAIResultExplainerTest(unittest.TestCase):
                         "headline_ja": "小さく始める案と全体案を条件で比べます。",
                         "interpretation_ja": "牛舎の不足と将来の運転負担を分けて確認できます。",
                         "condition_ja": "暑熱期間にはモデル間の幅があるため、運転費にも幅があります。",
-                        "next_check_key": "equipment_quote",
+                        "next_check_key": "operating_hours",
                     }
                 ),
             )
@@ -95,8 +95,8 @@ class OpenAIResultExplainerTest(unittest.TestCase):
         result = explainer.explain(SAMPLE_PAYLOAD)
 
         self.assertEqual(result.source_kind, "ai_explanation")
-        self.assertEqual(result.next_check_key, "equipment_quote")
-        self.assertEqual(result.next_check_ja, "実際の設備見積額")
+        self.assertEqual(result.next_check_key, "operating_hours")
+        self.assertEqual(result.next_check_ja, "暑い日の実際の運転時間")
         self.assertEqual(captured_request["model"], "gpt-5.6-luna")
         self.assertFalse(captured_request["store"])
         self.assertEqual(captured_request["reasoning"], {"effort": "none"})
@@ -106,6 +106,10 @@ class OpenAIResultExplainerTest(unittest.TestCase):
             "json_schema",
         )
         self.assertTrue(captured_request["text"]["format"]["strict"])  # type: ignore[index]
+        self.assertNotIn(
+            "equipment_quote",
+            captured_request["text"]["format"]["schema"]["properties"]["next_check_key"]["enum"],  # type: ignore[index]
+        )
         self.assertEqual(json.loads(captured_request["input"]), SAMPLE_PAYLOAD)
 
     def test_generated_explanation_cannot_introduce_numeric_claims(self) -> None:
@@ -117,7 +121,7 @@ class OpenAIResultExplainerTest(unittest.TestCase):
                         "headline_ja": "追加は七台がおすすめです。",
                         "interpretation_ja": "不足を解消します。",
                         "condition_ja": "確実に回収できます。",
-                        "next_check_key": "equipment_quote",
+                        "next_check_key": "operating_hours",
                     }
                 ),
             )
@@ -158,7 +162,7 @@ class OpenAIResultExplainerLiveTest(unittest.TestCase):
         self.assertTrue(result.headline_ja)
         self.assertTrue(result.interpretation_ja)
         self.assertTrue(result.condition_ja)
-        self.assertIn(result.next_check_key, {"equipment_quote", "summer_milk_difference"})
+        self.assertIn(result.next_check_key, {"actual_fan_count", "operating_hours"})
 
 
 if __name__ == "__main__":

@@ -125,6 +125,21 @@ async function main() {
   try {
     await send('Page.enable');
     await send('Page.navigate', { url: APP_URL });
+    await retry(async () => evaluate(`
+      document.readyState === 'complete'
+        && document.querySelector('.landing-hero h1')?.textContent.includes('自分の牛舎から考える')
+        && document.querySelector('.primary-link')?.getAttribute('href') === '/check'
+    `), '入口ページの読み込みが完了しませんでした');
+    assertEqual(
+      await evaluate(`JSON.stringify(Array.from(document.querySelectorAll('.landing-periods span'), (item) => item.textContent.trim()))`),
+      JSON.stringify([
+        '現在相当（2020〜2025年）',
+        '近未来（2026〜2030年）',
+        '次の期間（2031〜2034年）',
+      ]),
+      '入口ページの気候期間',
+    );
+    await evaluate(`document.querySelector('.primary-link').click()`);
     await waitForPage(evaluate);
 
     assertEqual(
@@ -181,7 +196,7 @@ async function main() {
     );
     assertEqual(
       await evaluate(`document.querySelector('.result-explanation button').textContent.trim()`),
-      'AIで結果を読み解く',
+      'AIにこの結果を読み解いてもらう',
       '説明生成は利用者操作で開始',
     );
 
@@ -286,7 +301,7 @@ async function main() {
       '入力変更後の計画台数財務',
     );
 
-    const referenceUrl = `${APP_URL}?region_ja=%E5%8D%83%E8%91%89%E5%B8%82&lactating_cows=100&lane_count=4&existing_fan_count=20&reference_mode=true`;
+    const referenceUrl = `${APP_URL}check?region_ja=%E5%8D%83%E8%91%89%E5%B8%82&lactating_cows=100&lane_count=4&existing_fan_count=20&reference_mode=true`;
     await send('Page.navigate', { url: referenceUrl });
     await waitForPage(evaluate, 'reference_mode=true');
     await evaluate(`document.querySelector('[data-plan="full_coverage"]').click()`);

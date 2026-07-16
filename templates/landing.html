@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dairy Horizon | 暑熱対策の判断材料を整理する</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ static_asset_version('style.css') }}">
+</head>
+<body class="landing-body">
+  <main class="landing-main">
+    <header class="landing-hero">
+      <p class="eyebrow">Dairy Horizon</p>
+      <h1><span>暑くなるこれからを、</span><span>自分の牛舎から考える</span></h1>
+      <p class="landing-lead">少ない入力から現在の不足と将来の暑熱期間を整理する、自分で判断するための指標をつくるアプリです。</p>
+      <a class="primary-link" href="/check">自分の牛舎で確認する</a>
+      <p class="landing-data-note">現在は千葉市の観測・気候データに対応しています。</p>
+    </header>
+
+    <section class="landing-purpose" aria-labelledby="purpose-heading">
+      <p class="section-kicker">このアプリで整理すること</p>
+      <h2 id="purpose-heading">答えを決めるのではなく、変化と判断材料を並べます</h2>
+      <div class="purpose-grid">
+        <article><strong>いま</strong><p>頭数と既存ファンから、現在の不足と風が届かない可能性のある牛床を確認します。</p></article>
+        <article><strong>これから</strong><p>将来の暑熱期間を幅で示し、運転日数と電気代がどう変わり得るかを確認します。</p></article>
+        <article><strong>どうするか</strong><p>そのまま、小さく始める、目安まで追加する場合を比べ、次に見る条件を整理します。</p></article>
+      </div>
+    </section>
+
+    <section class="landing-climate" aria-labelledby="landing-climate-heading">
+      <p class="section-kicker">千葉市で見えている変化</p>
+      <h2 id="landing-climate-heading">THI 72以上の日数を、期間ごとに比較します</h2>
+      <div class="landing-periods">
+        <article>
+          <span>現在相当（2020〜2025年）</span>
+          <strong>{{ dashboard.climate_background.observed_baseline.annual_days_range_ja }}</strong>
+          <small>気象庁観測</small>
+        </article>
+        {% for period in dashboard.climate_background.periods %}
+          <article>
+            <span>{% if loop.first %}近未来{% else %}次の期間{% endif %}（{{ period.start_year }}〜{{ period.end_year }}年）</span>
+            <strong>{{ period.central_days_range_ja }}</strong>
+            <small>観測基準に揃えた中心目安</small>
+          </article>
+        {% endfor %}
+      </div>
+      <p>特定年の確定予報ではありません。取得済みの2034年までを表示し、将来気候からファン台数や投資年を自動決定しません。</p>
+    </section>
+
+    <section class="landing-conversation" aria-labelledby="conversation-heading">
+      <div>
+        <p class="section-kicker">AIとの確認</p>
+        <h2 id="conversation-heading">分かる範囲を話すところから始めます</h2>
+        <p>AIは入力候補と計算結果の意味を整理します。必要台数、電気代、回収条件はテストされたPythonが計算します。</p>
+      </div>
+      <div class="conversation-preview" aria-label="入力例">
+        <p class="chat-bubble assistant-bubble">何頭飼っていて、牛床は何列ですか？</p>
+        <p class="chat-bubble user-bubble">100頭で、牛舎は4列です。</p>
+        <p class="chat-bubble assistant-bubble">100頭・4列として受け取りました。現在のファン台数が分からなくても、参考状態から確認できます。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

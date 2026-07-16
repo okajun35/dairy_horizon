@@ -58,7 +58,7 @@ class ReferenceInputTest(unittest.TestCase):
 
     def test_reference_state_prefills_and_evaluates_the_guideline_count(self) -> None:
         response = TestClient(app).get(
-            "/",
+            "/check",
             params={
                 "region_ja": "千葉市",
                 "lactating_cows": 100,
@@ -94,7 +94,7 @@ class ReferenceInputTest(unittest.TestCase):
 
     def test_adjusted_reference_count_remains_a_reference_and_is_recalculated(self) -> None:
         response = TestClient(app).get(
-            "/",
+            "/check",
             params={
                 "region_ja": "千葉市",
                 "lactating_cows": 100,
@@ -123,7 +123,7 @@ class ReferenceInputTest(unittest.TestCase):
 
     def test_entering_actual_fan_count_switches_to_confirmed_current_state(self) -> None:
         response = TestClient(app).get(
-            "/",
+            "/check",
             params={
                 "region_ja": "千葉市",
                 "lactating_cows": 100,
@@ -143,7 +143,7 @@ class ReferenceInputTest(unittest.TestCase):
 
     def test_reference_comparison_keeps_current_first_phase_and_guideline_plans(self) -> None:
         response = TestClient(app).get(
-            "/",
+            "/check",
             params={
                 "region_ja": "千葉市",
                 "lactating_cows": 100,

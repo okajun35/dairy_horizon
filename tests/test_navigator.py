@@ -84,7 +84,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertEqual(result.fan_count_basis, "user_input")
 
         response = TestClient(app).get(
-            "/?lactating_cows=60&lane_count=6&existing_fan_count=10&planned_fan_count=24"
+            "/check?lactating_cows=60&lane_count=6&existing_fan_count=10&planned_fan_count=24"
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("頭数基準の台数目安</dt><dd>20台", response.text)
@@ -99,7 +99,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertEqual(result.fan_count_basis, "zenrakuren_headcount_guideline")
 
         response = TestClient(app).get(
-            "/?lactating_cows=60&lane_count=2&existing_fan_count=10&planned_fan_count="
+            "/check?lactating_cows=60&lane_count=2&existing_fan_count=10&planned_fan_count="
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("頭数目安まで追加", response.text)
@@ -111,7 +111,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertEqual(result.current_state.estimated_uncovered_cow_ids, ())
 
     def test_screen_contains_barn_and_evidence(self) -> None:
-        response = TestClient(app).get("/")
+        response = TestClient(app).get("/check")
         self.assertEqual(response.status_code, 200)
         self.assertRegex(response.text, r'style\.css\?v=\d+')
         self.assertRegex(response.text, r'barn-viewer\.js\?v=\d+')
@@ -195,7 +195,7 @@ class NavigatorTest(unittest.TestCase):
 
     def test_confirmed_candidates_reach_the_deterministic_calculation(self) -> None:
         response = TestClient(app).get(
-            "/?region_ja=十勝&lactating_cows=75&lane_count=3&existing_fan_count=12"
+            "/check?region_ja=十勝&lactating_cows=75&lane_count=3&existing_fan_count=12"
         )
 
         self.assertEqual(response.status_code, 200)
@@ -224,13 +224,13 @@ class NavigatorTest(unittest.TestCase):
         self.assertNotIn("provider detail must not appear", response.text)
 
     def test_changed_first_phase_opens_the_first_phase_view(self) -> None:
-        response = TestClient(app).get("/?lactating_cows=60&lane_count=2&existing_fan_count=10&first_phase_fan_count=3")
+        response = TestClient(app).get("/check?lactating_cows=60&lane_count=2&existing_fan_count=10&first_phase_fan_count=3")
         self.assertEqual(response.status_code, 200)
         self.assertIn('"selected_plan": "first_phase"', response.text)
 
     def test_later_investment_year_updates_pathway_totals(self) -> None:
         response = TestClient(app).get(
-            "/?lactating_cows=60&lane_count=2&existing_fan_count=10&investment_year=2028"
+            "/check?lactating_cows=60&lane_count=2&existing_fan_count=10&investment_year=2028"
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn('<option value="2028" selected>2028年</option>', response.text)
@@ -243,7 +243,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertIn("2029年夏に見直す", response.text)
 
     def test_invalid_barn_input_fallback_still_renders_pathway(self) -> None:
-        response = TestClient(app).get("/?lane_count=7")
+        response = TestClient(app).get("/check?lane_count=7")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("牛床列数は1〜6列で入力してください。", response.text)

@@ -56,7 +56,7 @@ class ClimateBackgroundViewTest(unittest.TestCase):
         )
 
     def test_screen_explains_thi_uncertainty_and_cost_connection(self) -> None:
-        response = TestClient(app).get("/")
+        response = TestClient(app).get("/check")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("将来の暑熱期間は、運転日数と電力費の背景です", response.text)
@@ -83,7 +83,7 @@ class ClimateBackgroundViewTest(unittest.TestCase):
 
     def test_climate_costs_follow_user_plan_without_changing_it(self) -> None:
         response = TestClient(app).get(
-            "/?lactating_cows=60&lane_count=2&existing_fan_count=10"
+            "/check?lactating_cows=60&lane_count=2&existing_fan_count=10"
             "&first_phase_fan_count=3&planned_fan_count=18"
         )
 

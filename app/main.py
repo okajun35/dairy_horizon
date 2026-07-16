@@ -757,7 +757,18 @@ def _candidate_view(candidate: NaturalInputCandidate) -> dict[str, Any]:
 
 
 @app.get("/", response_class=HTMLResponse)
-def index(
+def landing(request: Request) -> HTMLResponse:
+    """Explain the product boundary before asking for farm conditions."""
+
+    return templates.TemplateResponse(
+        request=request,
+        name="landing.html",
+        context={"dashboard": _dashboard(60, 2, 10, None, 2026)},
+    )
+
+
+@app.get("/check", response_class=HTMLResponse)
+def check(
     request: Request,
     lactating_cows: int = Query(60, ge=1, le=300),
     lane_count: int = Query(2),
