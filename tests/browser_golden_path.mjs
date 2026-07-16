@@ -119,6 +119,18 @@ async function climateState(evaluate, periodKey, planIndex = 0) {
   })())`);
 }
 
+async function annualHeatPathState(evaluate, planKey) {
+  return evaluate(`JSON.stringify((() => {
+    const card = document.querySelector('[data-annual-heat-path="${planKey}"]');
+    return {
+      label: card.querySelector('h4').textContent.trim(),
+      values: Array.from(card.querySelectorAll('dd'), (item) => item.textContent.trim()),
+      resultClass: card.querySelector('dl div:last-child dd').className,
+      note: card.querySelector('p').textContent.trim(),
+    };
+  })())`);
+}
+
 async function main() {
   const client = await openClient();
   const { socket, send, evaluate } = client;
@@ -196,6 +208,26 @@ async function main() {
       await financialState(evaluate, 'full_coverage'),
       JSON.stringify(['10台', '30頭', '2,200,000円', '295,680円／年', '3.14kg／頭・日']),
       '初期の頭数目安財務',
+    );
+    assertEqual(
+      await annualHeatPathState(evaluate, 'current'),
+      JSON.stringify({
+        label: '追加なし',
+        values: ['30頭', '8,753kg', '-1,181,588円', '0円', '0円'],
+        resultClass: 'annual-path-improvement-neutral',
+        note: '何もしない場合の基準',
+      }),
+      '追加なしの年間損失基準',
+    );
+    assertEqual(
+      await annualHeatPathState(evaluate, 'first_phase'),
+      JSON.stringify({
+        label: '第1期：小さく始める',
+        values: ['15頭', '4,376kg', '-590,794円', '-282,870円', '-46,552円'],
+        resultClass: 'annual-path-improvement-negative',
+        note: '設備負担が防げる限界利益を上回る',
+      }),
+      '第1期の無対策との差',
     );
     assertEqual(
       await climateState(evaluate, '2026_2030'),

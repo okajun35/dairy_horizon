@@ -321,6 +321,27 @@
         {% endfor %}
       </div>
       <p class="financial-scale-note">追加台数と新たにカバーする頭数が同じ比率なら、1頭あたりの回収必要量は同じになります。金額と投資規模は案ごとに異なります。</p>
+      <section class="annual-heat-path-comparison" aria-labelledby="annual-heat-path-heading">
+        <p class="section-kicker">追加しない場合を基準にする</p>
+        <h3 id="annual-heat-path-heading">何もしない場合の損失と、追加後の改善を比べる</h3>
+        <p>現在の未カバー推計と、JMA実績を基にしたTHI 72以上 {{ dashboard.annual_heat_path_comparison.heat_days_per_year_ja }}を使った年間比較です。</p>
+        <div class="annual-heat-path-grid">
+          {% for plan in dashboard.annual_heat_path_comparison.plans %}
+            <article data-annual-heat-path="{{ plan.key }}">
+              <h4>{{ plan.label_ja }}</h4>
+              <dl>
+                <div><dt>未カバー推計</dt><dd>{{ plan.remaining_uncovered_cow_count }}頭</dd></div>
+                <div><dt>防げない乳量</dt><dd>{{ plan.remaining_milk_loss_ja }}</dd></div>
+                <div><dt>乳代売上への影響</dt><dd>{{ plan.remaining_gross_milk_loss_ja }}</dd></div>
+                <div><dt>設備の年間負担</dt><dd>{{ plan.annual_project_burden_ja }}</dd></div>
+                <div><dt>何もしない場合との差</dt><dd class="{{ plan.improvement_class }}">{{ plan.improvement_vs_no_action_ja }}</dd></div>
+              </dl>
+              <p class="{{ plan.improvement_class }}">{{ plan.status_note_ja }}</p>
+            </article>
+          {% endfor %}
+        </div>
+        <p class="annual-heat-path-note">乳代売上への影響は、防げない乳量と実現乳価から計算した売上減少の目安です。「何もしない場合との差」は、その売上減少から変動費を除いた限界利益損失と、追加設備の電気代・設備費年換算を比べています。夏季の防止乳量差は <span class="source-kind">{{ dashboard.financial_inputs.avoided_milk_loss_kg_per_cow_day.source_kind }}</span> であり、実測効果の保証ではありません。この差は暑熱対策単体の年間比較で、農場全体の黒字を示すものではありません。</p>
+      </section>
       {% if dashboard.two_horizon_financial %}
         <section class="annual-snapshot-comparison" aria-labelledby="annual-snapshot-heading">
           <p class="section-kicker">対策単体の年間収支</p>

@@ -25,6 +25,10 @@ from app.adaptation_screening import (
     TwoHorizonInput,
     build_two_horizon_screening,
 )
+from app.annual_heat_path import (
+    AnnualHeatPathInput,
+    calculate_annual_heat_path,
+)
 from app.climate_profile import (
     ClimatePeriodSummary,
     load_climate_profile,
@@ -177,6 +181,20 @@ def _format_yen(value: Decimal | None) -> str:
     if value is None:
         return "評価対象外"
     rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return f"{rounded:,.0f}円"
+
+
+def _format_negative_yen(value: Decimal) -> str:
+    rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    if rounded == 0:
+        return "0円"
+    return f"-{rounded:,.0f}円"
+
+
+def _format_signed_yen(value: Decimal) -> str:
+    rounded = value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    if rounded > 0:
+        return f"+{rounded:,.0f}円"
     return f"{rounded:,.0f}円"
 
 
@@ -663,6 +681,106 @@ def _two_horizon_financial_view(
     }
 
 
+def _annual_heat_path_comparison_view(
+    *,
+    plans: tuple[FanPlan, ...],
+    initial_uncovered_cow_count: int,
+    assumptions: FinancialAssumptions,
+    climate_background: dict[str, Any],
+    covered_cow_overrides: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    """Compare each current-period plan with the same no-action baseline."""
+
+    observed = climate_background["observed_baseline"]
+    heat_days_per_year = (
+        Decimal(str(observed["lower_annual_days"]))
+        + Decimal(str(observed["upper_annual_days"]))
+    ) / Decimal("2")
+    milk_loss = assumptions.avoided_milk_loss_kg_per_cow_day or Decimal("0")
+    period_assumptions = replace(
+        assumptions,
+        heat_days_per_year=heat_days_per_year,
+    )
+
+    plan_views: list[dict[str, Any]] = []
+    for plan in plans:
+        newly_covered_cow_count = min(
+            initial_uncovered_cow_count,
+            (covered_cow_overrides or {}).get(
+                plan.key, len(plan.newly_covered_cow_ids)
+            ),
+        )
+        financial = calculate_financial_screening(
+            FinancialPlan(
+                additional_fan_count=plan.additional_fan_count,
+                newly_covered_cow_count=newly_covered_cow_count,
+            ),
+            period_assumptions,
+        )
+        result = calculate_annual_heat_path(
+            AnnualHeatPathInput(
+                initial_uncovered_cow_count=initial_uncovered_cow_count,
+                newly_covered_cow_count=newly_covered_cow_count,
+                heat_days_per_year=heat_days_per_year,
+                milk_loss_kg_per_cow_day=milk_loss,
+                milk_price_yen_per_kg=assumptions.milk_price_yen_per_kg,
+                variable_cost_ratio=assumptions.variable_cost_ratio,
+                annual_project_burden_yen=financial.annual_burden_yen,
+            )
+        )
+        improvement = result.improvement_vs_no_action_yen
+        if plan.key == "current":
+            improvement_class = "annual-path-improvement-neutral"
+            status_note_ja = "何もしない場合の基準"
+        elif improvement > 0:
+            improvement_class = "annual-path-improvement-positive"
+            status_note_ja = "何もしない場合より改善"
+        else:
+            improvement_class = "annual-path-improvement-negative"
+            status_note_ja = "設備負担が防げる限界利益を上回る"
+        plan_views.append(
+            {
+                "key": plan.key,
+                "label_ja": "追加なし" if plan.key == "current" else plan.label_ja,
+                "remaining_uncovered_cow_count": (
+                    result.remaining_uncovered_cow_count
+                ),
+                "remaining_milk_loss_kg": float(
+                    result.remaining_milk_loss_kg
+                ),
+                "remaining_gross_milk_loss_yen": _rounded_int(
+                    result.remaining_gross_milk_loss_yen
+                ),
+                "annual_project_burden_yen": _rounded_int(
+                    result.annual_project_burden_yen
+                ),
+                "improvement_vs_no_action_yen": _rounded_int(improvement),
+                "remaining_milk_loss_ja": _format_kg(
+                    result.remaining_milk_loss_kg
+                ),
+                "remaining_gross_milk_loss_ja": _format_negative_yen(
+                    result.remaining_gross_milk_loss_yen
+                ),
+                "annual_project_burden_ja": _format_negative_yen(
+                    result.annual_project_burden_yen
+                ),
+                "improvement_vs_no_action_ja": _format_signed_yen(
+                    improvement
+                ),
+                "improvement_class": improvement_class,
+                "status_note_ja": status_note_ja,
+            }
+        )
+
+    return {
+        "heat_days_per_year": float(heat_days_per_year),
+        "heat_days_per_year_ja": (
+            f"{heat_days_per_year.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)}日／年"
+        ),
+        "plans": tuple(plan_views),
+    }
+
+
 def _equipment_branch_views(
     *,
     standard_fan_count: int,
@@ -770,6 +888,7 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
 
     climate = dashboard["climate_background"]
     adaptation = dashboard["two_horizon_screening"]
+    annual_heat_path = dashboard["annual_heat_path_comparison"]
     return {
         "input": {
             "region_ja": navigation.inputs.region_ja,
@@ -809,6 +928,30 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
             "next_check_key": adaptation.next_check_key,
         },
         "plans": plans,
+        "annual_heat_path": {
+            "heat_days_per_year": annual_heat_path["heat_days_per_year"],
+            "plans": tuple(
+                {
+                    "key": plan["key"],
+                    "remaining_uncovered_cow_count": plan[
+                        "remaining_uncovered_cow_count"
+                    ],
+                    "remaining_milk_loss_kg": plan[
+                        "remaining_milk_loss_kg"
+                    ],
+                    "remaining_gross_milk_loss_yen": plan[
+                        "remaining_gross_milk_loss_yen"
+                    ],
+                    "annual_project_burden_yen": plan[
+                        "annual_project_burden_yen"
+                    ],
+                    "improvement_vs_no_action_yen": plan[
+                        "improvement_vs_no_action_yen"
+                    ],
+                }
+                for plan in annual_heat_path["plans"]
+            ),
+        },
         "climate": {
             "region_name_ja": climate["region_name_ja"],
             "thi_threshold": climate["thi_threshold"],
@@ -1112,6 +1255,15 @@ def _dashboard(
         "path_comparison": path_comparison,
         "financial_comparison": financial_comparison,
         "climate_background": climate_background,
+        "annual_heat_path_comparison": _annual_heat_path_comparison_view(
+            plans=navigation.plans,
+            initial_uncovered_cow_count=(
+                two_horizon_screening.current_before.estimated_uncovered_cow_count
+            ),
+            assumptions=financial_assumptions,
+            climate_background=climate_background,
+            covered_cow_overrides=covered_cow_overrides,
+        ),
         "two_horizon_financial": _two_horizon_financial_view(
             first_phase_plan=navigation.plans[1],
             covered_cow_count=(
