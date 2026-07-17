@@ -28,21 +28,21 @@
     <header class="intro check-intro">
       <a class="back-link" href="/">Dairy Horizonの主旨へ戻る</a>
       <p class="eyebrow">Dairy Horizon</p>
-      <h1>AIと一緒に条件を整理する</h1>
-      <p>分かる範囲から始め、計算結果と将来の見通しを一つずつ確認します。</p>
+      <h1>牛舎の条件を順番に整理する</h1>
+      <p>モデルケースを見てから、分かる項目だけご自身の条件へ書き換えます。</p>
     </header>
 
-    <section class="natural-input guided-chat" aria-labelledby="natural-input-heading">
-      <p class="section-kicker">最初の確認</p>
-      <h2 id="natural-input-heading">分かる範囲を文章で教えてください</h2>
+    <section class="natural-input guided-chat workflow-step" id="step-1" aria-labelledby="natural-input-heading">
+      <h2 class="workflow-step-title">ステップ1：牛舎の条件を入れる</h2>
+      <h3 id="natural-input-heading">分かる範囲を文章で教えてください</h3>
       <div class="chat-bubble assistant-bubble">
-        <p>千葉市のデータを使います。飼っている頭数、牛床の列数、現在のファン台数を、分かる範囲で入力してください。</p>
-        <small>分からない項目は、参考値を明示して先へ進めます。</small>
+        <p>現在60頭・2列・ファン10台・5年後45頭のモデルケースが入っています。分かる範囲だけ、ご自身の条件へ書き換えてください。</p>
+        <small>分からない項目は、そのままモデルケースを見てから確認できます。</small>
       </div>
       <form class="chat-composer" method="post" action="/interpret">
         <label for="farm-description">あなたの農場について</label>
-        <textarea id="farm-description" name="farm_description" maxlength="2000" required placeholder="例：現在60頭、2列、ファン10台です。5年後は45頭を考えています。">{{ farm_description }}</textarea>
-        <button type="submit">AIに伝える</button>
+        <textarea id="farm-description" name="farm_description" maxlength="2000" required placeholder="例：現在60頭、2列、ファン10台です。5年後は45頭を考えています。">{{ farm_description or '現在60頭、2列、ファン10台です。5年後は45頭を考えています。' }}</textarea>
+        <button type="submit">この内容で確認する</button>
       </form>
       <p class="input-note">入力内容はOpenAI APIへ送信されます。設備価格などは推測せず、不明な項目は後から確認します。</p>
       {% if natural_input_error %}<p class="error" role="alert">{{ natural_input_error }}</p>{% endif %}
@@ -50,7 +50,7 @@
         <div class="candidate-confirmation">
           <h3>AIが読み取った候補（未確認）</h3>
           <p>読み取れた値と標準設定を確認できます。不明な値を現在値としては扱いません。</p>
-          <form class="candidate-fields" method="get" action="/check">
+          <form class="candidate-fields" method="get" action="/check#step-2">
             {% if candidate.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ candidate.future_target_cow_count }}">{% endif %}
             <label>地域<input value="{{ candidate.region_ja }}" disabled aria-describedby="candidate-region-availability-note"><input name="region_ja" type="hidden" value="{{ candidate.region_ja }}"><small id="candidate-region-availability-note">{{ candidate.region_note }}</small></label>
             <label>搾乳牛頭数<input name="lactating_cows" type="number" min="1" max="300" value="{{ candidate.lactating_cows or '' }}" required><small>{% if candidate.lactating_cows is not none %}入力から読み取り{% else %}確認が必要{% endif %}</small></label>
@@ -64,7 +64,7 @@
             <div class="reference-option">
               <p><strong>現在使っているファンは何台ですか？</strong></p>
               <p>分からない場合は、頭数基準の{{ candidate.reference_fan_count }}台を配置した参考状態まで先に確認できます。現在の台数ではありませんが、参考状態として不足を評価します。</p>
-              <form method="get" action="/check">
+              <form method="get" action="/check#step-2">
                 <input name="region_ja" type="hidden" value="{{ candidate.region_ja }}">
                 <input name="lactating_cows" type="hidden" value="{{ candidate.lactating_cows }}">
                 <input name="lane_count" type="hidden" value="{{ candidate.lane_count }}">
@@ -81,7 +81,7 @@
 
     <details class="manual-inputs">
       <summary><strong>数字で直接入力する</strong><span> AIを使わずに4項目を変更できます</span></summary>
-    <form class="quick-inputs" method="get" action="/check">
+    <form class="quick-inputs" method="get" action="/check#step-2">
       <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
       {% if nav.planned_fan_count is not none %}<input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count }}">{% endif %}
       {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
@@ -108,9 +108,80 @@
     </details>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
-    <section class="two-horizon" aria-labelledby="two-horizon-heading">
-      <p class="section-kicker">牛群方針と第1期</p>
-      <h2 id="two-horizon-heading">現在の不足と5年後の不足を分けて確認する</h2>
+    <section class="climate-outlook" aria-labelledby="climate-outlook-heading">
+      <p class="section-kicker">この地域の暑熱の見通し</p>
+      <h2 id="climate-outlook-heading">{{ dashboard.climate_background.region_name_ja }}では、THI 72以上の日数が増える可能性があります</h2>
+      <p>THIは気温と湿度から決まる暑熱の指標です。ここでは、日平均THI 72以上の日数と現在との差を期間ごとに示します。</p>
+      <div class="climate-outlook-grid">
+        <article>
+          <h3>現在相当（2020〜2025年）</h3>
+          <dl><div><dt>THI 72以上</dt><dd>{{ dashboard.climate_background.observed_baseline.annual_days_range_ja }}</dd></div><div><dt>現在との差</dt><dd>基準</dd></div></dl>
+        </article>
+        {% for period in dashboard.climate_background.periods %}
+          <article>
+            <h3>{% if loop.first %}今後5年（{% else %}次の期間（{% endif %}{{ period.start_year }}〜{{ period.end_year }}年）</h3>
+            <dl><div><dt>THI 72以上</dt><dd>{{ period.central_days_range_ja }}</dd></div><div><dt>現在との差</dt><dd>{{ period.median_change_days_ja }}</dd></div></dl>
+            <small>モデル差を含む範囲：{{ period.full_days_range_ja }}</small>
+          </article>
+        {% endfor %}
+        <article class="climate-unavailable">
+          <h3>10年後（2036年ごろ）</h3>
+          <dl><div><dt>THI 72以上</dt><dd>未取得</dd></div><div><dt>現在との差</dt><dd>未評価</dd></div></dl>
+          <small>2035年以降は外挿せず、取得済みデータがありません。</small>
+        </article>
+      </div>
+      <p class="climate-outlook-boundary">頭数と設備条件が同じなら、現在すでにある不足は自然には解消しません。THI 72以上の日数が増えると、その不足状態が問題になる日数と運転負担は増える可能性があります。ただし、THIだけから追加台数や導入時期は決めません。</p>
+    </section>
+
+    <section class="current-barn workflow-step" id="step-2" aria-labelledby="current-barn-heading">
+      <div class="workflow-step-heading">
+        <h2 class="workflow-step-title">ステップ2：いまの牛舎を確認する</h2>
+        <h3 id="current-barn-heading">入力した条件が、現在の牛舎にどう反映されたかを見る</h3>
+        <p>頭数とファン数から不足を確認し、牛床列数は下の牛舎図の配置に反映します。</p>
+      </div>
+      <div class="current-input-summary" aria-label="現在の牛舎で使った条件">
+        <h3>今回の現在条件</h3>
+        <dl>
+          <div><dt>搾乳牛</dt><dd>{{ nav.inputs.lactating_cows }}頭</dd><small>必要台数の目安に使用</small></div>
+          <div><dt>牛床列数</dt><dd>{{ nav.inputs.lane_count }}列</dd><small>下の牛舎図を{{ nav.inputs.lane_count }}列で配置</small></div>
+          <div><dt>{% if reference_mode %}参考配置{% else %}既存ファン{% endif %}</dt><dd>{{ current.existing_fan_count }}台</dd><small>{% if reference_mode %}実際の台数が未確認のため、頭数基準の参考状態として配置{% else %}現在の配置と不足の計算に使用{% endif %}</small></div>
+        </dl>
+      </div>
+      <div class="comparison-row">
+        <div class="barn-panel">
+          <p class="section-kicker">{% if reference_mode %}頭数基準の参考状態{% else %}現在の牛舎{% endif %}</p>
+          <h3>{% if reference_mode %}{{ current.existing_fan_count }}台を配置した場合{% else %}いま、どの牛床に風が届くか{% endif %}</h3>
+          <div id="current-barn-viewer" class="barn-viewer" aria-label="現在の牛舎の2.5D表示"></div>
+          <p class="legend"><span class="covered"></span>カバー済み <span class="uncovered"></span>未カバー推計</p>
+          <p id="current-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
+        </div>
+        <aside class="state-panel" aria-label="{% if reference_mode %}頭数基準の参考状態{% else %}現在の不足{% endif %}">
+          <p class="section-kicker">{% if reference_mode %}頭数基準の参考状態{% else %}現在の不足{% endif %}</p>
+          <dl>
+            <div><dt>搾乳牛</dt><dd>{{ nav.inputs.lactating_cows }}頭</dd></div>
+            <div><dt>頭数基準の台数目安</dt><dd>{{ current.guideline_fan_count }}台</dd></div>
+            {% if reference_mode %}
+              <div><dt>現在のファン数</dt><dd>未確認</dd></div>
+              <div><dt>参考配置</dt><dd>{{ current.existing_fan_count }}台</dd></div>
+              <div class="shortage"><dt>参考状態での不足</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
+              <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
+            {% else %}
+              <div><dt>既存</dt><dd>{{ current.existing_fan_count }}台</dd></div>
+              <div class="shortage"><dt>目安との差</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
+              <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
+            {% endif %}
+          </dl>
+          <p>算出根拠：{{ nav.inputs.lactating_cows }}頭 ÷ {{ current.fan_capacity_cows_per_unit }}頭／台</p>
+          <p class="state-note">{% if reference_mode %}参考配置は現在ある台数ではありません。上の台数を増減して牛舎を更新できます。実際の台数が分かれば「実際の台数として計算」を選びます。{% else %}投資試算用の目安です。実際の必要台数は配置・性能・牛体付近風速で確認します。{% endif %}</p>
+        </aside>
+      </div>
+      <p class="current-barn-action"><a class="step-link" href="#step-3">対応の規模を比べる</a></p>
+    </section>
+
+    <section class="two-horizon workflow-step" id="step-3" aria-labelledby="two-horizon-heading">
+      <h2 class="workflow-step-title">ステップ3：対応の規模を比べる</h2>
+      <h3 id="two-horizon-heading">現在・第1期後・5年後を分けて確認する</h3>
+      <p>現在の牛舎を基準に、第1期と全数追加を比べます。</p>
       <div class="horizon-state-grid">
         <article>
           <h3>現在・追加前</h3>
@@ -133,15 +204,83 @@
       {% if adaptation.future_after %}<p>5年後の頭数基準に到達していても、実際の送風範囲は未確認です。</p>{% endif %}
       {% if adaptation.coverage_status == 'confirmed_measurement' %}<p class="confirmed-measurement">実測で確認した{{ adaptation.covered_cow_count_for_finance }}頭を回収計算へ反映しています。</p>{% endif %}
       <p class="next-check-line">{% if adaptation.next_check_key == 'future_target_cow_count' %}次に確認する情報は、5年後の対策対象頭数です。{% elif adaptation.next_check_key == 'cow_level_wind_speed' %}次に確認する情報は、設置候補範囲の牛体付近風速です。{% else %}次に確認する情報は、夏季の乳量差です。{% endif %}</p>
-      <p><a href="#next-step">入力は画面下の「次の一手」でまとめて変更できます。</a></p>
+      <p><a class="step-link" href="#comparison-barn">牛舎図で第1期と全数追加を比べる</a></p>
+    </section>
+
+    <section class="barn-comparison" id="comparison-barn" aria-labelledby="barn-heading">
+      <div class="workflow-step-heading">
+        <h2 id="barn-heading">牛舎図で第1期と全数追加を比べる</h2>
+      </div>
+
+      <div class="comparison-row">
+        <div class="barn-panel comparison-barn-panel">
+          <p class="section-kicker">比較の基準</p>
+          <h3>{% if reference_mode %}参考状態の牛舎{% else %}現在の牛舎{% endif %}</h3>
+          <div id="comparison-current-barn-viewer" class="barn-viewer" aria-label="比較の基準となる現在の牛舎の2.5D表示"></div>
+          <p class="legend"><span class="covered"></span>{% if reference_mode %}参考値でカバー{% else %}既存でカバー{% endif %} <span class="uncovered"></span>未カバー推計</p>
+          <p id="comparison-current-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
+        </div>
+        <aside class="state-panel" aria-label="比較の基準となる現在の不足">
+          <p class="section-kicker">比較の基準</p>
+          <dl>
+            <div><dt>稼働ファン</dt><dd>{{ current.existing_fan_count }}台</dd></div>
+            <div><dt>頭数基準の台数目安</dt><dd>{{ current.guideline_fan_count }}台</dd></div>
+            <div class="shortage"><dt>目安との差</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
+            <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
+          </dl>
+          <p>この状態を基準に、下の第1期と全数追加を比べます。</p>
+        </aside>
+      </div>
+
+      <div class="comparison-row">
+        <div class="barn-panel comparison-barn-panel">
+          <p class="section-kicker">比較後の牛舎</p>
+          <h2 data-comparison-barn-heading>{% if selected_path.investment_year and selected_plan.additional_fan_count %}{{ selected_path.investment_year }}年に{% if reference_mode %}参考値から{% endif %}{{ selected_plan.additional_fan_count }}台を追加した直後の牛舎{% else %}追加投資がないため、{% if reference_mode %}参考状態{% else %}現在{% endif %}と同じ牛舎{% endif %}</h2>
+          <p class="comparison-time-note">この牛舎図は5年後の予測ではありません。年度別の比較期間は{{ pathway.start_year }}〜{{ pathway.end_year }}年です。</p>
+          <div class="plan-tabs" role="tablist" aria-label="比較する整備段階">
+            {% for plan in nav.plans[1:] %}
+              <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
+            {% endfor %}
+          </div>
+          <p class="comparison-input-link"><a href="#next-step">実施年・第1期台数・計画総台数を変更する</a></p>
+          <div id="comparison-barn-viewer" class="barn-viewer" aria-label="比較後の牛舎の2.5D表示"></div>
+          <p class="legend"><span class="covered"></span>{% if reference_mode %}参考値でカバー{% else %}既存でカバー{% endif %} <span class="newly-covered"></span>追加でカバー <span class="uncovered"></span>未カバー推計</p>
+          <p id="comparison-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
+        </div>
+        <aside class="state-panel comparison-state" aria-live="polite" aria-labelledby="selected-plan-heading">
+          <p class="section-kicker">比較するとどう変わるか</p>
+          <h3 id="selected-plan-heading" data-selected-label>{{ selected_plan.label_ja }}</h3>
+          <dl>
+            <div><dt>追加する台数</dt><dd data-selected-additional>+{{ selected_plan.additional_fan_count }}台</dd></div>
+            <div><dt>稼働ファン</dt><dd data-selected-active>{{ selected_plan.active_fan_count }}台</dd></div>
+            <div><dt>新たにカバー推計</dt><dd data-selected-newly>+{{ selected_plan.newly_covered_cow_ids|length }}頭</dd></div>
+            <div><dt>未カバー推計</dt><dd data-selected-uncovered>{{ nav.inputs.lactating_cows - selected_plan.covered_cow_ids|length }}頭</dd></div>
+            <div><dt>未カバー状態の延べ規模</dt><dd data-selected-cumulative class="{% if selected_path.cumulative_uncovered_cow_years %}cumulative-unresolved{% else %}cumulative-resolved{% endif %}">{% if selected_path.cumulative_uncovered_cow_years %}{{ selected_path.cumulative_uncovered_cow_years }}頭分・年{% else %}0 — 未カバーなし{% endif %}</dd></div>
+          </dl>
+          <p data-selected-cumulative-note>{% if selected_path.cumulative_uncovered_cow_years == 0 %}{{ pathway.planning_horizon_years }}年間を通じて未カバー推計はありません。{% elif selected_path.cumulative_uncovered_cow_years == selected_path.years[0].uncovered_cow_count * pathway.planning_horizon_years %}{{ selected_path.years[0].uncovered_cow_count }}頭の未カバー推計が{{ pathway.planning_horizon_years }}年間残ります。{% else %}各年の未カバー推計を合計した延べ規模です。{% endif %}</p>
+          <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}{% if reference_mode %}参考値{% else %}現在{% endif %}より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}{% if reference_mode %}参考状態{% else %}現在の状態{% endif %}を確認しています。{% endif %}</p>
+          {% if reference_mode %}<p class="reference-limit-note">頭数・台数・3頭／台の基準を変えない比較です。将来の暑熱期間は、下の背景情報で運転日数と電力費へ分けて確認します。</p>{% endif %}
+        </aside>
+      </div>
+    </section>
+
+    <section class="result-support" aria-labelledby="result-support-heading">
+      <p class="section-kicker">結果を支える情報</p>
+      <h2 id="result-support-heading">まず見る要点</h2>
+      <p>計算済みの結果から、先に確認したいことを整理しています。詳しい数字は下の項目を開いて確認できます。</p>
+      <ul class="result-summary-list">
+        <li>現在は頭数基準の目安より{{ current.guideline_gap_fan_count }}台少なく、未カバー推計は{{ current.estimated_uncovered_cow_ids|length }}頭です。</li>
+        <li>第1期は{{ selected_plan.additional_fan_count }}台追加し、新たに{{ selected_plan.newly_covered_cow_ids|length }}頭をカバーする推定です。</li>
+        {% if adaptation.future_after %}<li>5年後{{ adaptation.future_after.target_cow_count }}頭では、第1期後に{% if adaptation.future_after.guideline_gap_fan_count %}{{ adaptation.future_after.guideline_gap_fan_count }}台の不足が残ります{% else %}頭数基準の目安に届きます{% endif %}。</li>{% endif %}
+        <li>{% if adaptation.next_check_key == 'future_target_cow_count' %}次は、5年後の対策対象頭数を確認します。{% elif adaptation.next_check_key == 'cow_level_wind_speed' %}次は、設置候補範囲の牛体付近風速を確認します。{% else %}次は、夏季の乳量差を確認します。{% endif %}</li>
+      </ul>
     </section>
 
     <section class="result-explanation guide-conversation" aria-labelledby="result-explanation-heading">
       <div class="chat-bubble assistant-bubble">
-        <p class="section-kicker">計算結果の案内</p>
-        <h2 id="result-explanation-heading">まず現在、次に将来の変化を確認します</h2>
-        <p>{% if reference_mode %}現在のファン台数が未確認なので、頭数基準の参考状態を表示しています。{% else %}現在は頭数基準の目安に対して{{ current.guideline_gap_fan_count }}台の差があり、未カバー推計は{{ current.estimated_uncovered_cow_ids|length }}頭です。{% endif %}</p>
-        <p>千葉市のTHI 72以上の日数は、現在相当と2026〜2030年、2031〜2034年を期間で比較します。気候からファン台数は増減させません。</p>
+        <p class="section-kicker">AIによる補足</p>
+        <h2 id="result-explanation-heading">結果を言葉で確認する</h2>
+        <p>上の要点と計算済みの数値をもとに、今の条件で気をつける点を平易な言葉で確認できます。</p>
       </div>
       <form method="post" action="/explain">
         <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
@@ -179,68 +318,8 @@
       {% endif %}
     </section>
 
-    <section class="barn-comparison" aria-labelledby="barn-heading">
-      <div class="comparison-row">
-        <div class="barn-panel">
-          <p class="section-kicker">{% if reference_mode %}頭数基準の参考状態{% else %}現在の牛舎{% endif %}</p>
-          <h2 id="barn-heading">{% if reference_mode %}{{ current.existing_fan_count }}台を配置した場合{% else %}いま、どの牛床に風が届くか{% endif %}</h2>
-          <div id="current-barn-viewer" class="barn-viewer" aria-label="現在の牛舎の2.5D表示"></div>
-          <p class="legend"><span class="covered"></span>カバー済み <span class="uncovered"></span>未カバー推計</p>
-          <p id="current-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
-        </div>
-        <aside class="state-panel" aria-label="{% if reference_mode %}頭数基準の参考状態{% else %}現在の不足{% endif %}">
-          <p class="section-kicker">{% if reference_mode %}頭数基準の参考状態{% else %}現在の不足{% endif %}</p>
-          <dl>
-            <div><dt>搾乳牛</dt><dd>{{ nav.inputs.lactating_cows }}頭</dd></div>
-            <div><dt>頭数基準の台数目安</dt><dd>{{ current.guideline_fan_count }}台</dd></div>
-            {% if reference_mode %}
-              <div><dt>現在のファン数</dt><dd>未確認</dd></div>
-              <div><dt>参考配置</dt><dd>{{ current.existing_fan_count }}台</dd></div>
-              <div class="shortage"><dt>参考状態での不足</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
-              <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
-            {% else %}
-              <div><dt>既存</dt><dd>{{ current.existing_fan_count }}台</dd></div>
-              <div class="shortage"><dt>目安との差</dt><dd>{{ current.guideline_gap_fan_count }}台</dd></div>
-              <div><dt>未カバー推計</dt><dd>{{ current.estimated_uncovered_cow_ids|length }}頭</dd></div>
-            {% endif %}
-          </dl>
-          <p>算出根拠：{{ nav.inputs.lactating_cows }}頭 ÷ {{ current.fan_capacity_cows_per_unit }}頭／台</p>
-          <p class="state-note">{% if reference_mode %}参考配置は現在ある台数ではありません。上の台数を増減して牛舎を更新できます。実際の台数が分かれば「実際の台数として計算」を選びます。{% else %}投資試算用の目安です。実際の必要台数は配置・性能・牛体付近風速で確認します。{% endif %}</p>
-        </aside>
-      </div>
-
-      <div class="comparison-row">
-        <div class="barn-panel comparison-barn-panel">
-          <p class="section-kicker">比較後の牛舎</p>
-          <h2 data-comparison-barn-heading>{% if selected_path.investment_year and selected_plan.additional_fan_count %}{{ selected_path.investment_year }}年に{% if reference_mode %}参考値から{% endif %}{{ selected_plan.additional_fan_count }}台を追加した直後の牛舎{% else %}追加投資がないため、{% if reference_mode %}参考状態{% else %}現在{% endif %}と同じ牛舎{% endif %}</h2>
-          <p class="comparison-time-note">この牛舎図は5年後の予測ではありません。年度別の比較期間は{{ pathway.start_year }}〜{{ pathway.end_year }}年です。</p>
-          <div class="plan-tabs" role="tablist" aria-label="比較する整備段階">
-            {% for plan in nav.plans[1:] %}
-              <button type="button" class="plan-tab {% if (nav.inputs.first_phase_fan_count is not none and plan.key == 'first_phase') or (nav.inputs.first_phase_fan_count is none and loop.first) %}active{% endif %}" data-plan="{{ plan.key }}" role="tab">{{ plan.label_ja }}</button>
-            {% endfor %}
-          </div>
-          <p class="comparison-input-link"><a href="#next-step">実施年・第1期台数・計画総台数を変更する</a></p>
-          <div id="comparison-barn-viewer" class="barn-viewer" aria-label="比較後の牛舎の2.5D表示"></div>
-          <p class="legend"><span class="covered"></span>{% if reference_mode %}参考値でカバー{% else %}既存でカバー{% endif %} <span class="newly-covered"></span>追加でカバー <span class="uncovered"></span>未カバー推計</p>
-          <p id="comparison-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
-        </div>
-        <aside class="state-panel comparison-state" aria-live="polite" aria-labelledby="selected-plan-heading">
-          <p class="section-kicker">比較するとどう変わるか</p>
-          <h3 id="selected-plan-heading" data-selected-label>{{ selected_plan.label_ja }}</h3>
-          <dl>
-            <div><dt>追加する台数</dt><dd data-selected-additional>+{{ selected_plan.additional_fan_count }}台</dd></div>
-            <div><dt>稼働ファン</dt><dd data-selected-active>{{ selected_plan.active_fan_count }}台</dd></div>
-            <div><dt>新たにカバー推計</dt><dd data-selected-newly>+{{ selected_plan.newly_covered_cow_ids|length }}頭</dd></div>
-            <div><dt>未カバー推計</dt><dd data-selected-uncovered>{{ nav.inputs.lactating_cows - selected_plan.covered_cow_ids|length }}頭</dd></div>
-            <div><dt>未カバー状態の延べ規模</dt><dd data-selected-cumulative class="{% if selected_path.cumulative_uncovered_cow_years %}cumulative-unresolved{% else %}cumulative-resolved{% endif %}">{% if selected_path.cumulative_uncovered_cow_years %}{{ selected_path.cumulative_uncovered_cow_years }}頭分・年{% else %}0 — 未カバーなし{% endif %}</dd></div>
-          </dl>
-          <p data-selected-cumulative-note>{% if selected_path.cumulative_uncovered_cow_years == 0 %}{{ pathway.planning_horizon_years }}年間を通じて未カバー推計はありません。{% elif selected_path.cumulative_uncovered_cow_years == selected_path.years[0].uncovered_cow_count * pathway.planning_horizon_years %}{{ selected_path.years[0].uncovered_cow_count }}頭の未カバー推計が{{ pathway.planning_horizon_years }}年間残ります。{% else %}各年の未カバー推計を合計した延べ規模です。{% endif %}</p>
-          <p data-selected-change>{% if selected_plan.newly_covered_cow_ids %}{% if reference_mode %}参考値{% else %}現在{% endif %}より {{ selected_plan.newly_covered_cow_ids|length }}頭少なくなります。{% else %}{% if reference_mode %}参考状態{% else %}現在の状態{% endif %}を確認しています。{% endif %}</p>
-          {% if reference_mode %}<p class="reference-limit-note">頭数・台数・3頭／台の基準を変えない比較です。将来の暑熱期間は、下の背景情報で運転日数と電力費へ分けて確認します。</p>{% endif %}
-        </aside>
-      </div>
-    </section>
-
+    <details class="support-detail">
+      <summary><strong>第1期の機器分岐</strong><span> 標準型と比較用の他機種で、確認できる範囲を見る</span></summary>
     <section class="equipment-branches" aria-labelledby="equipment-branches-heading">
       <p class="section-kicker">第1期の機器分岐</p>
       <h2 id="equipment-branches-heading">主計算は標準型、他の型は確認できる範囲まで</h2>
@@ -262,7 +341,10 @@
         {% endfor %}
       </div>
     </section>
+    </details>
 
+    <details class="support-detail">
+      <summary><strong>暑熱期間の背景</strong><span> 運転日数と電気代に関わる将来の幅を見る</span></summary>
     <section class="climate-background" aria-labelledby="climate-heading">
       <p class="section-kicker">暑熱期間の背景</p>
       <h2 id="climate-heading">将来の暑熱期間は、運転日数と電力費の背景です</h2>
@@ -299,7 +381,10 @@
       </div>
       <p class="climate-boundary-note">中心目安は観測の97.0〜97.5日にモデル変化量の中央値を加え、広い範囲は観測の欠測幅とモデル差の両方を含みます。2035年以降は未取得です。運転時間は時間別の暑さを予測した値ではなく、標準仮定または利用者入力です。</p>
     </section>
+    </details>
 
+    <details class="support-detail">
+      <summary><strong>標準条件での採算確認</strong><span> 導入費・電気代・回収に必要な防止乳量を見る</span></summary>
     <section class="financial-comparison" aria-labelledby="financial-heading">
       <p class="section-kicker">{% if operating.is_user_input %}運転時間を反映した採算確認{% else %}標準条件での採算確認{% endif %}</p>
       <h2 id="financial-heading">{% if reference_mode %}参考状態から追加する場合の標準試算{% else %}追加案の費用と回収条件を比べる{% endif %}</h2>
@@ -419,6 +504,7 @@
         <p class="financial-source">出典：全酪連 COW BELL No.178「暑熱対策の設備投資を考える」の標準計算例。防げる乳量3.0kg／頭・日は効果保証ではなく、払える目安を比較するためのデモ仮定です。法定耐用年数7年は年割りに使い、故障年や交換年を意味しません。</p>
       </details>
     </section>
+    </details>
 
     {% if reference_mode %}
     <section class="pathway reference-pathway" aria-labelledby="pathway-heading">
@@ -466,9 +552,9 @@
     </section>
     {% endif %}
 
-    <section class="next-step" id="next-step" aria-labelledby="next-heading">
-      <p class="section-kicker">次の一手</p>
-      <h2 id="next-heading">{% if reference_mode %}現在使っているファンは何台ですか？{% elif primary_future %}5年後の対策対象頭数は何頭ですか？{% elif primary_coverage %}追加{{ adaptation.inputs.first_phase_additional_fan_count }}台の候補範囲で、牛体付近風速を確認できた対象は何頭ですか？{% elif primary_milk %}暑熱期にどれだけ乳量低下を防げましたか？{% else %}主要な確認値を反映しました{% endif %}</h2>
+    <section class="next-step workflow-step" id="next-step" aria-labelledby="next-heading">
+      <h2 class="workflow-step-title">ステップ4：次の一手</h2>
+      <h3 id="next-heading">{% if reference_mode %}現在使っているファンは何台ですか？{% elif primary_future %}5年後の対策対象頭数は何頭ですか？{% elif primary_coverage %}追加{{ adaptation.inputs.first_phase_additional_fan_count }}台の候補範囲で、牛体付近風速を確認できた対象は何頭ですか？{% elif primary_milk %}暑熱期にどれだけ乳量低下を防げましたか？{% else %}主要な確認値を反映しました{% endif %}</h3>
       <p>{% if reference_mode %}参考値を実際の台数へ置き換え、現在の不足を再計算します。{% elif primary_future %}将来頭数を入力すると、現在の過不足とは分けて再計算します。{% elif primary_coverage %}頭数基準ではなく、牛体付近2m/s以上を実測で確認した対象頭数を回収計算へ反映します。{% elif primary_milk %}風速で送風範囲を確認した後は、夏季の防止乳量差で経済効果を確認します。{% else %}必要に応じて下の比較条件を変更し、同じ場所で結果を更新できます。{% endif %}</p>
       <form class="next-step-inputs" method="get" action="/check#next-step">
         <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">

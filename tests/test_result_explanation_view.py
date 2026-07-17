@@ -93,7 +93,7 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertNotIn('<form class="operating-hours-control"', response.text)
         self.assertNotIn('<form class="first-phase-control"', response.text)
         self.assertIn(
-            '<form class="quick-inputs" method="get" action="/check">',
+            '<form class="quick-inputs" method="get" action="/check#step-2">',
             response.text,
         )
 

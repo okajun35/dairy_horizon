@@ -1,8 +1,10 @@
 const payload = JSON.parse(document.querySelector('#barn-payload').textContent);
 const currentViewer = document.querySelector('#current-barn-viewer');
 const comparisonViewer = document.querySelector('#comparison-barn-viewer');
+const comparisonCurrentViewer = document.querySelector('#comparison-current-barn-viewer');
 const currentDetail = document.querySelector('#current-selection-detail');
 const comparisonDetail = document.querySelector('#comparison-selection-detail');
+const comparisonCurrentDetail = document.querySelector('#comparison-current-selection-detail');
 const tabs = [...document.querySelectorAll('.plan-tab')];
 const pathCards = [...document.querySelectorAll('[data-path-card]')];
 const allCows = payload.cows_by_lane.flat();
@@ -124,4 +126,5 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
 }));
 
 renderBarn(currentViewer, currentDetail, planFor('current'));
+renderBarn(comparisonCurrentViewer, comparisonCurrentDetail, planFor('current'));
 renderComparison();

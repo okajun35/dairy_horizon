@@ -10,7 +10,7 @@ from app.main import app
 
 def _next_step(html: str) -> str:
     match = re.search(
-        r'<section class="next-step" id="next-step".*?</section>',
+        r'<section class="next-step[^\"]*" id="next-step".*?</section>',
         html,
         flags=re.DOTALL,
     )
