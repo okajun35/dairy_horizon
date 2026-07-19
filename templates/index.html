@@ -533,9 +533,10 @@
         </article>
         <div class="sensitivity-controls">
           {% for control in dashboard.future_outlook.controls %}
-            <article class="sensitivity-control" data-outlook-control data-outlook-key="{{ control.key }}" data-outlook-current="{{ control.current_value }}" data-outlook-points='{{ control.points|tojson }}'>
+            <article class="sensitivity-control" data-outlook-control data-outlook-key="{{ control.key }}" data-outlook-unit="{{ control.unit_ja }}" data-outlook-current="{{ control.current_value }}" data-outlook-points='{{ control.points|tojson }}'>
               <h4>{{ control.label_ja }}</h4>
               {% if control.status == 'reachable' %}
+                <p class="sensitivity-current">いまの値：<strong data-outlook-value></strong></p>
                 <p class="sensitivity-break-even">回収ライン：<strong>{{ control.break_even_ja }}</strong></p>
                 <label>{{ control.step_ja }}{{ control.unit_ja }}ずつ動かす<input type="range" min="0" max="{{ control.points|length - 1 }}" value="{{ control.initial_index }}" step="1" data-outlook-slider></label>
                 <p class="sensitivity-reading" data-outlook-reading></p>
@@ -705,6 +706,7 @@
       points: JSON.parse(container.dataset.outlookPoints || '[]'),
       slider: container.querySelector('[data-outlook-slider]'),
       reading: container.querySelector('[data-outlook-reading]'),
+      value: container.querySelector('[data-outlook-value]'),
     }));
     let aggregateRequestId = 0;
     const renderAggregate = async () => {
@@ -731,9 +733,10 @@
         : `年間の差引は <strong>${result.balance_ja}</strong> です。`;
     };
     renderedControls.forEach((control) => {
-      if (!control.slider || !control.reading || !control.points.length) return;
+      if (!control.slider || !control.reading || !control.value || !control.points.length) return;
       const render = (skipAggregate = false) => {
         const point = control.points[Number(control.slider.value)];
+        control.value.textContent = `${point.value_ja}${control.container.dataset.outlookUnit}`;
         control.reading.innerHTML = point.is_break_even
           ? '年間の差引は <strong>回収ライン（損得0円の境目）</strong> です。'
           : `年間の差引は <strong>${point.balance_ja}</strong> です。`;

@@ -428,9 +428,11 @@ async function main() {
         const controls = [...document.querySelectorAll('[data-outlook-control]')];
         const sliders = controls.map((control) => control.querySelector('[data-outlook-slider]')).filter(Boolean);
         const readings = controls.map((control) => control.querySelector('[data-outlook-reading]')).filter(Boolean);
+        const values = controls.map((control) => control.querySelector('[data-outlook-value]')).filter(Boolean);
         const aggregate = document.querySelector('[data-aggregate-reading]');
         const initialAtBreakEven = readings.every((reading) => reading.textContent.includes('回収ライン（損得0円の境目）'));
         const before = readings[0].textContent.trim();
+        const valueBefore = values[0].textContent.trim();
         const aggregateBefore = aggregate.textContent.trim();
         sliders[0].value = String(Math.max(0, Number(sliders[0].value) - 1));
         sliders[0].dispatchEvent(new Event('input', { bubbles: true }));
@@ -439,7 +441,9 @@ async function main() {
           controls: controls.length,
           sliders: sliders.length,
           initialAtBreakEven,
+          valuesShown: values.length === 4 && values.every((value) => value.textContent.trim().length > 0),
           changed: before !== readings[0].textContent.trim(),
+          valueChanged: valueBefore !== values[0].textContent.trim(),
           aggregateChanged: aggregateBefore !== aggregate.textContent.trim(),
           queryUnchanged: location.search.includes('confirmed_covered_cow_count=12'),
         };
@@ -448,7 +452,9 @@ async function main() {
         controls: 4,
         sliders: 4,
         initialAtBreakEven: true,
+        valuesShown: true,
         changed: true,
+        valueChanged: true,
         aggregateChanged: true,
         queryUnchanged: true,
       }),

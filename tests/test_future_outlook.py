@@ -70,6 +70,8 @@ class FutureOutlookTest(unittest.TestCase):
         self.assertIn("暑い日の運転時間", response.text)
         self.assertIn("4条件を合わせた第1期の年間差引", response.text)
         self.assertIn("回収ライン（損得0円の境目）", response.text)
+        self.assertIn("いまの値：<strong data-outlook-value></strong>", response.text)
+        self.assertIn('data-outlook-unit="kg／頭・暑熱日"', response.text)
         self.assertIn("スライダーは結果を保存・変更しません", response.text)
         self.assertNotIn('data-primary-input="avoided_milk_loss_kg_per_cow_day"', response.text)
 

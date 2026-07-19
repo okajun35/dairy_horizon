@@ -192,6 +192,7 @@ label { display: grid; gap: 5px; font-size: .82rem; font-weight: 650; } input, s
 .sensitivity-controls { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
 .sensitivity-control { display:grid; gap:10px; padding:16px; border:1px solid #d3e0d5; border-radius:10px; background:#fbfdfb; }
 .sensitivity-control h4 { margin:0; color:#276c4d; }
+.sensitivity-current { margin:0; color:#315c48; font-size:.92rem; }
 .sensitivity-control label { display:grid; gap:7px; color:#315c48; font-size:.86rem; }
 .sensitivity-control input { width:100%; accent-color:#39785d; }
 .sensitivity-break-even { margin:0; padding:9px 10px; border-radius:8px; background:#edf6ef; }
