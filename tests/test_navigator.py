@@ -145,7 +145,7 @@ class NavigatorTest(unittest.TestCase):
         self.assertIn("頭数基準の台数目安", response.text)
         self.assertIn('name="planned_fan_count"', response.text)
         self.assertIn("列数による自動補正や2列共用による半減は行いません", response.text)
-        self.assertIn("industry_guidance", response.text)
+        self.assertIn("資料の標準条件", response.text)
         self.assertIn("全酪連 COW BELL No.178", response.text)
         self.assertIn("法定耐用年数", response.text)
         self.assertIn("7年", response.text)

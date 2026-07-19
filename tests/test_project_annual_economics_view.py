@@ -30,7 +30,7 @@ class ProjectAnnualEconomicsViewTest(unittest.TestCase):
         self.assertIn("-46,552円", response.text)
         self.assertIn("-34,767円", response.text)
         self.assertIn("annual-balance-negative", response.text)
-        self.assertIn("user_input", response.text)
+        self.assertIn("入力した値", response.text)
         self.assertIn("農場全体のキャッシュフローではありません", response.text)
 
 

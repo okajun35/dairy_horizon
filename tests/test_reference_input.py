@@ -119,7 +119,7 @@ class ReferenceInputTest(unittest.TestCase):
         self.assertIn("稼働ファン</dt><dd data-selected-active>34台", response.text)
         self.assertIn("新たにカバー推計</dt><dd data-selected-newly>+10頭", response.text)
         self.assertIn("未カバー推計</dt><dd data-selected-uncovered>0頭", response.text)
-        self.assertIn('<input name="reference_mode" type="hidden" value="true">', response.text)
+        self.assertIn("年間差が出る理由", response.text)
 
     def test_entering_actual_fan_count_switches_to_confirmed_current_state(self) -> None:
         response = TestClient(app).get(
