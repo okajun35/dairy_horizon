@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import base64
 from dataclasses import asdict, replace
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from itertools import product
+import json
 import os
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Form, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi import Body, Depends, FastAPI, Form, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -25,6 +28,7 @@ from app.adaptation_screening import (
     TwoHorizonInput,
     build_two_horizon_screening,
 )
+from app.answer_delta import ANSWER_KEYS, build_answer_delta
 from app.annual_heat_path import (
     AnnualHeatPathInput,
     calculate_annual_heat_path,
@@ -33,6 +37,11 @@ from app.climate_profile import (
     ClimatePeriodSummary,
     load_climate_profile,
     summarize_thi_days,
+)
+from app.decision_policy import (
+    ComparisonOption,
+    ThreeChoiceEvidence,
+    build_adaptive_pathway_position,
 )
 from app.financial_screening import (
     FinancialAssumptions,
@@ -47,6 +56,7 @@ from app.farm_sales_context import (
     FarmSalesContextInputError,
     calculate_farm_sales_context,
 )
+from app.future_outlook import build_future_outlook
 from app.navigator import (
     BarnInput,
     CurrentBarnState,
@@ -65,6 +75,7 @@ from app.project_annual_economics import calculate_project_annual_economics
 from app.result_explanation import (
     OpenAIResultExplainer,
     ResultExplanationUnavailable,
+    build_fallback_choice_summary,
     build_fallback_explanation,
 )
 
@@ -92,6 +103,26 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 templates.env.globals["static_asset_version"] = _static_asset_version
 SUPPORTED_REGION_JA = "千葉市"
+SOURCE_KIND_LABELS = {
+    "user_input": "入力した値",
+    "official_observation": "観測データ",
+    "official_statistics": "公的統計",
+    "industry_guidance": "資料の標準条件",
+    "manufacturer_spec": "機器仕様",
+    "derived": "計算した値",
+    "demo_assumption": "比較用の仮定",
+    "processed_cmip6_api": "保存済みの気候データ",
+    "scenario_boundary": "探索の端点",
+}
+
+
+def source_kind_ja(kind: str) -> str:
+    """Keep provenance useful without exposing internal category names."""
+
+    return SOURCE_KIND_LABELS.get(kind, "計算条件")
+
+
+templates.env.globals["source_kind_ja"] = source_kind_ja
 
 
 def get_natural_input_interpreter() -> OpenAINaturalInputInterpreter:
@@ -118,6 +149,82 @@ def _optional_int(value: str | None, label_ja: str) -> int | None:
         return int(value)
     except ValueError as exc:
         raise InputValidationError(f"{label_ja}は整数で入力してください。") from exc
+
+
+def _delta_snapshot(
+    *,
+    lactating_cows: int,
+    lane_count: int,
+    existing_fan_count: int,
+    first_phase_fan_count: int | None,
+    investment_year: int,
+    planned_fan_count: int | None,
+    operating_hours_per_day: Decimal | None,
+    future_target_cow_count: int | None,
+    confirmed_covered_cow_count: int | None,
+    avoided_milk_loss_kg_per_cow_day: Decimal | None,
+    milk_price_yen_per_kg: Decimal | None,
+    electricity_price_yen_per_kwh: Decimal | None,
+    current_annual_shipped_milk_kg: Decimal | None,
+    future_annual_shipped_milk_kg: Decimal | None,
+    reference_mode: bool,
+) -> str:
+    """Encode one prior deterministic input set for a single answer comparison."""
+
+    values = {
+        "lactating_cows": lactating_cows,
+        "lane_count": lane_count,
+        "existing_fan_count": existing_fan_count,
+        "first_phase_fan_count": first_phase_fan_count,
+        "investment_year": investment_year,
+        "planned_fan_count": planned_fan_count,
+        "operating_hours_per_day": str(operating_hours_per_day) if operating_hours_per_day is not None else None,
+        "future_target_cow_count": future_target_cow_count,
+        "confirmed_covered_cow_count": confirmed_covered_cow_count,
+        "avoided_milk_loss_kg_per_cow_day": str(avoided_milk_loss_kg_per_cow_day) if avoided_milk_loss_kg_per_cow_day is not None else None,
+        "milk_price_yen_per_kg": str(milk_price_yen_per_kg) if milk_price_yen_per_kg is not None else None,
+        "electricity_price_yen_per_kwh": str(electricity_price_yen_per_kwh) if electricity_price_yen_per_kwh is not None else None,
+        "current_annual_shipped_milk_kg": str(current_annual_shipped_milk_kg) if current_annual_shipped_milk_kg is not None else None,
+        "future_annual_shipped_milk_kg": str(future_annual_shipped_milk_kg) if future_annual_shipped_milk_kg is not None else None,
+        "reference_mode": reference_mode,
+    }
+    return base64.urlsafe_b64encode(
+        json.dumps(values, separators=(",", ":")).encode()
+    ).decode().rstrip("=")
+
+
+def _dashboard_from_delta_snapshot(snapshot: str) -> dict[str, Any]:
+    """Recreate the prior result only from a compact, validated input snapshot."""
+
+    try:
+        padded = snapshot + "=" * (-len(snapshot) % 4)
+        values = json.loads(base64.urlsafe_b64decode(padded).decode())
+        if not isinstance(values, dict):
+            raise ValueError
+        return _dashboard(
+            int(values["lactating_cows"]),
+            int(values["lane_count"]),
+            int(values["existing_fan_count"]),
+            _optional_int(_snapshot_optional(values.get("first_phase_fan_count")), "第1期に追加する台数"),
+            int(values["investment_year"]),
+            _optional_int(_snapshot_optional(values.get("planned_fan_count")), "今回の計画総台数"),
+            SUPPORTED_REGION_JA,
+            bool(values.get("reference_mode", False)),
+            _optional_operating_hours(_snapshot_optional(values.get("operating_hours_per_day"))),
+            _optional_bounded_int(_snapshot_optional(values.get("future_target_cow_count")), "5年後の対策対象頭数", minimum=1, maximum=300),
+            _optional_bounded_int(_snapshot_optional(values.get("confirmed_covered_cow_count")), "牛体付近2m/s以上を確認できた対象頭数", minimum=0, maximum=300),
+            _optional_non_negative_decimal(_snapshot_optional(values.get("avoided_milk_loss_kg_per_cow_day")), "夏季の防止乳量差"),
+            _optional_non_negative_decimal(_snapshot_optional(values.get("milk_price_yen_per_kg")), "実現乳価"),
+            _optional_non_negative_decimal(_snapshot_optional(values.get("electricity_price_yen_per_kwh")), "電力量単価"),
+            _optional_non_negative_decimal(_snapshot_optional(values.get("current_annual_shipped_milk_kg")), "現在の年間出荷乳量"),
+            _optional_non_negative_decimal(_snapshot_optional(values.get("future_annual_shipped_milk_kg")), "5年後の年間出荷乳量"),
+        )
+    except (KeyError, TypeError, ValueError, UnicodeDecodeError, InputValidationError, AdaptationInputError, FarmSalesContextInputError):
+        raise InputValidationError("前回の比較条件を読み取れませんでした。もう一度回答してください。") from None
+
+
+def _snapshot_optional(value: object) -> str | None:
+    return None if value is None else str(value)
 
 
 def _optional_bounded_int(
@@ -681,6 +788,120 @@ def _two_horizon_financial_view(
     }
 
 
+def _future_outlook_view(
+    *,
+    first_phase_plan: FanPlan,
+    full_plan: FanPlan,
+    covered_cow_count: int,
+    assumptions: FinancialAssumptions,
+) -> dict[str, Any] | None:
+    """Format the sensitivity map without turning its effect axis into input."""
+
+    if first_phase_plan.additional_fan_count == 0 or covered_cow_count == 0:
+        return None
+    outlook = build_future_outlook(
+        first_phase_plan=FinancialPlan(
+            first_phase_plan.additional_fan_count, covered_cow_count
+        ),
+        full_additional_fan_count=full_plan.additional_fan_count,
+        assumptions=assumptions,
+    )
+    def format_value(key: str, value: Decimal) -> str:
+        if key in {"avoided_milk_loss_kg_per_cow_day", "operating_hours_per_day"}:
+            return f"{value.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP):.1f}"
+        return f"{value.quantize(Decimal('1'), rounding=ROUND_HALF_UP):,.0f}"
+
+    controls = []
+    aggregate_values: dict[str, Decimal] = {}
+    for control in outlook.controls:
+        points = tuple(
+            {
+                "value_ja": format_value(control.key, point.value),
+                "value": str(point.value),
+                "balance_ja": _format_signed_yen(point.annual_project_balance_yen),
+                "is_break_even": point.is_break_even,
+            }
+            for point in control.points
+        )
+        initial_index = next(
+            (
+                index
+                for index, point in enumerate(control.points)
+                if point.is_break_even
+            ),
+            0,
+        )
+        controls.append(
+            {
+                "key": control.key,
+                "label_ja": control.label_ja,
+                "unit_ja": control.unit_ja,
+                "step_ja": format_value(control.key, control.step),
+                "current_value": str(getattr(assumptions, control.key)),
+                "status": control.status,
+                "break_even_ja": (
+                    f"約{format_value(control.key, control.break_even_value)}{control.unit_ja}"
+                    if control.break_even_value is not None
+                    else None
+                ),
+                "unreachable_ja": (
+                    "この条件だけでは回収ラインに届きません。"
+                    if control.status == "always_negative"
+                    else "この条件を動かしても、範囲内に回収ラインはありません。"
+                ),
+                "initial_index": initial_index,
+                "points": points,
+            }
+        )
+        aggregate_values[control.key] = (
+            control.break_even_value
+            if control.break_even_value is not None
+            else getattr(assumptions, control.key)
+        )
+    aggregate_assumptions = replace(assumptions, **aggregate_values)
+    aggregate_economics = calculate_project_annual_economics(
+        FinancialPlan(first_phase_plan.additional_fan_count, covered_cow_count),
+        aggregate_assumptions,
+    )
+    assert aggregate_economics.annual_project_balance_yen is not None
+    endpoint_balances = []
+    for endpoint_values in product(
+        *((control.points[0].value, control.points[-1].value) for control in outlook.controls)
+    ):
+        endpoint_assumptions = replace(
+            assumptions,
+            **{
+                control.key: value
+                for control, value in zip(outlook.controls, endpoint_values, strict=True)
+            },
+        )
+        endpoint_economics = calculate_project_annual_economics(
+            FinancialPlan(first_phase_plan.additional_fan_count, covered_cow_count),
+            endpoint_assumptions,
+        )
+        assert endpoint_economics.annual_project_balance_yen is not None
+        endpoint_balances.append(endpoint_economics.annual_project_balance_yen)
+    aggregate_visual_range_yen = max(
+        (abs(value) for value in endpoint_balances), default=Decimal("1")
+    ) or Decimal("1")
+    return {
+        "first_phase_additional_fan_count": outlook.first_phase_additional_fan_count,
+        "second_phase_candidate_fan_count": outlook.second_phase_candidate_fan_count,
+        "controls": tuple(controls),
+        "aggregate": {
+            "balance_ja": _format_signed_yen(
+                aggregate_economics.annual_project_balance_yen
+            ),
+            "is_break_even": aggregate_economics.annual_project_balance_yen == Decimal("0"),
+            "visual_range_yen": str(aggregate_visual_range_yen),
+            "request": {
+                "additional_fan_count": first_phase_plan.additional_fan_count,
+                "covered_cow_count": covered_cow_count,
+            },
+        },
+    }
+
+
 def _annual_heat_path_comparison_view(
     *,
     plans: tuple[FanPlan, ...],
@@ -769,6 +990,59 @@ def _annual_heat_path_comparison_view(
                 ),
                 "improvement_class": improvement_class,
                 "status_note_ja": status_note_ja,
+                "newly_covered_cow_count": newly_covered_cow_count,
+                "annual_avoided_milk_ja": _format_kg(
+                    result.no_action_milk_loss_kg - result.remaining_milk_loss_kg
+                ),
+                "annual_gross_benefit_ja": _format_yen(
+                    result.no_action_gross_milk_loss_yen
+                    - result.remaining_gross_milk_loss_yen
+                ),
+                "annual_variable_cost_ja": _format_negative_yen(
+                    (result.no_action_gross_milk_loss_yen
+                    - result.remaining_gross_milk_loss_yen)
+                    - (result.no_action_contribution_loss_yen
+                    - result.remaining_contribution_loss_yen)
+                ),
+                "annual_contribution_benefit_ja": _format_signed_yen(
+                    result.no_action_contribution_loss_yen
+                    - result.remaining_contribution_loss_yen
+                ),
+                "annualized_capex_ja": _format_negative_yen(
+                    financial.annualized_capex_yen
+                ),
+                "annual_energy_charge_ja": _format_negative_yen(
+                    financial.annual_energy_charge_yen
+                ),
+                "annual_basic_charge_ja": _format_negative_yen(
+                    financial.annual_basic_charge_yen
+                ),
+                "annual_electricity_ja": _format_negative_yen(
+                    financial.incremental_annual_electricity_cost_yen
+                ),
+                "heat_days_per_year_ja": (
+                    f"{heat_days_per_year.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)}日"
+                ),
+                "milk_loss_ja": _format_decimal(milk_loss),
+                "milk_price_ja": _format_decimal(
+                    assumptions.milk_price_yen_per_kg
+                ),
+                "variable_cost_ratio_percent_ja": _format_decimal(
+                    assumptions.variable_cost_ratio * Decimal("100")
+                ),
+                "useful_life_years": assumptions.useful_life_years,
+                "power_kw_per_fan_ja": _format_decimal(
+                    assumptions.power_kw_per_fan
+                ),
+                "operating_hours_per_day_ja": _format_decimal(
+                    assumptions.operating_hours_per_day
+                ),
+                "electricity_price_ja": _format_decimal(
+                    assumptions.electricity_price_yen_per_kwh
+                ),
+                "inverter_reduction_percent_ja": _format_decimal(
+                    assumptions.inverter_reduction_ratio * Decimal("100")
+                ),
             }
         )
 
@@ -778,6 +1052,229 @@ def _annual_heat_path_comparison_view(
             f"{heat_days_per_year.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)}日／年"
         ),
         "plans": tuple(plan_views),
+    }
+
+
+def _right_sized_choice_view(
+    *,
+    plans: tuple[FanPlan, ...],
+    financial_comparison: dict[str, Any],
+    annual_heat_path_comparison: dict[str, Any],
+) -> dict[str, Any]:
+    """Put cost, remaining uncertainty, and field checks beside each option.
+
+    This is deliberately a comparison view, not a recommendation or a
+    feasibility decision.  All monetary figures continue to come from the
+    existing deterministic financial and annual heat-path calculations.
+    """
+
+    financial_by_key = {
+        item["key"]: item for item in financial_comparison["plans"]
+    }
+    annual_by_key = {
+        item["key"]: item for item in annual_heat_path_comparison["plans"]
+    }
+    wording = {
+        "current": {
+            "label_ja": "今のまま",
+            "benefit_ja": "追加費用を出さず、今年の様子を確かめられます。",
+            "field_check_ja": "暑い時間に、未カバー推計の牛床と既存ファンの稼働を見ます。",
+        },
+        "first_phase": {
+            "label_ja": "まず不足箇所を整える",
+            "benefit_ja": "不足しそうな場所を減らし、今年の様子を見直せます。",
+            "field_check_ja": "追加した場所で、牛が過ごせているかと風を感じにくそうな牛床を見ます。",
+        },
+        "full_coverage": {
+            "label_ja": "牛舎全体を整える",
+            "benefit_ja": "頭数基準の不足をまとめて減らす比較ができます。",
+            "field_check_ja": "計画した全ての場所で、ファンの稼働と牛床の使われ方を見ます。",
+        },
+    }
+
+    cards: list[dict[str, Any]] = []
+    for plan in plans:
+        annual = annual_by_key[plan.key]
+        financial = financial_by_key.get(plan.key)
+        is_current = plan.key == "current"
+        remaining = annual["remaining_uncovered_cow_count"]
+        calculation = None
+        if not is_current:
+            calculation = {
+                "additional_fan_count": plan.additional_fan_count,
+                "newly_covered_cow_count": annual["newly_covered_cow_count"],
+                "heat_days_per_year_ja": annual["heat_days_per_year_ja"],
+                "milk_loss_ja": annual["milk_loss_ja"],
+                "milk_price_ja": annual["milk_price_ja"],
+                "variable_cost_ratio_percent_ja": annual[
+                    "variable_cost_ratio_percent_ja"
+                ],
+                "annual_avoided_milk_ja": annual["annual_avoided_milk_ja"],
+                "annual_gross_benefit_ja": annual["annual_gross_benefit_ja"],
+                "annual_variable_cost_ja": annual["annual_variable_cost_ja"],
+                "annual_contribution_benefit_ja": annual[
+                    "annual_contribution_benefit_ja"
+                ],
+                "upfront_cost_ja": financial["incremental_capex_ja"],
+                "useful_life_years": annual["useful_life_years"],
+                "annualized_capex_ja": annual["annualized_capex_ja"],
+                "power_kw_per_fan_ja": annual["power_kw_per_fan_ja"],
+                "operating_hours_per_day_ja": annual[
+                    "operating_hours_per_day_ja"
+                ],
+                "electricity_price_ja": annual["electricity_price_ja"],
+                "inverter_reduction_percent_ja": annual[
+                    "inverter_reduction_percent_ja"
+                ],
+                "annual_energy_charge_ja": annual["annual_energy_charge_ja"],
+                "annual_basic_charge_ja": annual["annual_basic_charge_ja"],
+                "annual_electricity_ja": annual["annual_electricity_ja"],
+                "annual_comparison_ja": annual["improvement_vs_no_action_ja"],
+            }
+        cards.append(
+            {
+                "key": plan.key,
+                "label_ja": wording[plan.key]["label_ja"],
+                "benefit_ja": wording[plan.key]["benefit_ja"],
+                "upfront_cost_ja": (
+                    "0円" if is_current else financial["incremental_capex_ja"]
+                ),
+                "remaining_uncovered_ja": f"{remaining}頭",
+                "remaining_note_ja": (
+                    "未カバー推計を抱えたまま、今夏の様子を確かめます。"
+                    if remaining
+                    else "頭数基準上の未カバー推計はありません。配置と稼働は現場で確かめます。"
+                ),
+                "annual_comparison_ja": (
+                    "基準（0円）"
+                    if is_current
+                    else annual["improvement_vs_no_action_ja"]
+                ),
+                "annual_comparison_class": annual["improvement_class"],
+                "field_check_ja": wording[plan.key]["field_check_ja"],
+                "calculation": calculation,
+            }
+        )
+
+    return {
+        "cards": tuple(cards),
+        "annual_condition_note_ja": (
+            "年間の比較結果は、夏季の防止乳量差・乳価・電気代を現在の比較条件に置いた値です。"
+            "効果の保証や農場全体の収支ではありません。"
+        ),
+    }
+
+
+def _step_four_pathway_view(
+    *,
+    financial_comparison: dict[str, Any],
+    annual_heat_path_comparison: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the deterministic Step 4 hierarchy before any AI phrasing.
+
+    The pathway is the page's primary decision support.  The API may only add
+    the financial guardrail wording, never select or rewrite this pathway.
+    """
+
+    financial_by_key = {
+        item["key"]: item for item in financial_comparison["plans"]
+    }
+    annual_by_key = {
+        item["key"]: item for item in annual_heat_path_comparison["plans"]
+    }
+    evidence = ThreeChoiceEvidence(
+        current=ComparisonOption(
+            upfront_cost_yen=0,
+            remaining_uncovered_cow_count=int(
+                annual_by_key["current"]["remaining_uncovered_cow_count"]
+            ),
+            annual_comparison_yen=int(
+                annual_by_key["current"]["improvement_vs_no_action_yen"]
+            ),
+        ),
+        first_phase=ComparisonOption(
+            upfront_cost_yen=int(financial_by_key["first_phase"]["incremental_capex_yen"]),
+            remaining_uncovered_cow_count=int(
+                annual_by_key["first_phase"]["remaining_uncovered_cow_count"]
+            ),
+            annual_comparison_yen=int(
+                annual_by_key["first_phase"]["improvement_vs_no_action_yen"]
+            ),
+        ),
+        full_coverage=ComparisonOption(
+            upfront_cost_yen=int(financial_by_key["full_coverage"]["incremental_capex_yen"]),
+            remaining_uncovered_cow_count=int(
+                annual_by_key["full_coverage"]["remaining_uncovered_cow_count"]
+            ),
+            annual_comparison_yen=int(
+                annual_by_key["full_coverage"]["improvement_vs_no_action_yen"]
+            ),
+        ),
+    )
+    policy = build_adaptive_pathway_position(evidence)
+    views: dict[str, dict[str, Any]] = {
+        "START_SMALL": {
+            "title_ja": "不足箇所案から見る",
+            "summary_ja": "未カバー推計を減らしつつ、全体整備を今すぐ確定しない進め方です。",
+            "screen_heading_ja": "この画面で見ること",
+            "screen_focus_ja": "まず不足箇所案で、どの位置の未カバー推計が減るかを確認します。",
+            "default_barn_plan": "first_phase",
+        },
+        "MAINTAIN": {
+            "title_ja": "今の配置から見る",
+            "summary_ja": "配置計算では未カバー推計がないため、追加設備を今すぐ決める状態ではありません。",
+            "screen_heading_ja": "この画面で見ること",
+            "screen_focus_ja": "現在の牛舎図で、未カバー推計がない位置を見ます。",
+            "default_barn_plan": "current",
+        },
+        "COMPLETE_NOW": {
+            "title_ja": "全体案から見る",
+            "summary_ja": "全体案が不足箇所案より比較上不利でないため、未カバー推計を残さない進め方も成り立ちます。",
+            "screen_heading_ja": "この画面で見ること",
+            "screen_focus_ja": "全体案の牛舎図で、未カバー推計がなくなる位置を見ます。",
+            "default_barn_plan": "full_coverage",
+        },
+        "REASSESS": {
+            "title_ja": "比較条件を見直す",
+            "summary_ja": "不足箇所案では未カバー推計が減らないため、配置または台数の条件を見直します。",
+            "screen_heading_ja": "この画面で見ること",
+            "screen_focus_ja": "現在と不足箇所案の牛舎図を比べ、未カバー推計が減らないことを見ます。",
+            "default_barn_plan": "current",
+        },
+    }
+    view = views[policy.overall_position]
+    reading_plan_key = {
+        "MAINTAIN": None,
+        "START_SMALL": "first_phase",
+        "COMPLETE_NOW": "full_coverage",
+        "REASSESS": "first_phase",
+    }[policy.overall_position]
+    if reading_plan_key is None:
+        financial_reading_ja = "追加設備がないため、年間差は比較しません。"
+    else:
+        annual = annual_by_key[reading_plan_key]
+        financial_reading_ja = (
+            f"仮置きの乳量効果 {annual['annual_contribution_benefit_ja']}／年に対して、"
+            f"設備費の年割り {annual['annualized_capex_ja']}／年と"
+            f"追加電気代 {annual['annual_electricity_ja']}／年を置くため、"
+            f"年間差は {annual['improvement_vs_no_action_ja']}／年です。"
+        )
+        if annual["improvement_vs_no_action_yen"] < 0:
+            financial_reading_ja += " 乳量効果だけでは、設備費の年割りと追加電気代をまかないきれません。"
+        else:
+            financial_reading_ja += " この差は、現在の比較条件での値であり、実際の効果を保証しません。"
+    guardrail_fact = {
+        "not_applicable": "追加設備の年間比較は当てはまらない。",
+        "first_phase_annual_comparison_negative": "不足箇所案の年間比較は追加なしを下回る。",
+        "first_phase_annual_comparison_not_negative": "不足箇所案の年間比較は追加なしを下回っていない。",
+        "full_coverage_annual_comparison_negative": "全体案の年間比較は追加なしを下回る。",
+        "full_coverage_annual_comparison_not_negative": "全体案の年間比較は追加なしを下回っていない。",
+    }[policy.economic_guardrail]
+    return {
+        **view,
+        "policy": asdict(policy),
+        "financial_reading_ja": financial_reading_ja,
+        "economic_guardrail_fact_ja": guardrail_fact,
     }
 
 
@@ -986,6 +1483,176 @@ def _result_explanation_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
             "recommend_investment_year": False,
             "climate_data_end_year": 2034,
             "unavailable_after_end_year": True,
+        },
+    }
+
+
+def _choice_summary_payload(dashboard: dict[str, Any]) -> dict[str, Any]:
+    """Create the complete, calculation-only contract for the AI summary."""
+
+    financial_by_key = {
+        plan["key"]: plan for plan in dashboard["financial_comparison"]["plans"]
+    }
+    annual_by_key = {
+        plan["key"]: plan
+        for plan in dashboard["annual_heat_path_comparison"]["plans"]
+    }
+    current_uncovered_cow_count = annual_by_key["current"][
+        "remaining_uncovered_cow_count"
+    ]
+    cards = []
+    for card in dashboard["right_sized_choice"]["cards"]:
+        annual = annual_by_key[card["key"]]
+        annual_difference = annual["improvement_vs_no_action_yen"]
+        if card["key"] == "current":
+            annual_status = "baseline"
+        elif annual_difference > 0:
+            annual_status = "positive"
+        elif annual_difference < 0:
+            annual_status = "negative"
+        else:
+            annual_status = "break_even"
+        remaining_uncovered_cow_count = annual["remaining_uncovered_cow_count"]
+        if card["key"] == "current" or (
+            remaining_uncovered_cow_count >= current_uncovered_cow_count
+        ):
+            uncovered_change_ja = "未カバー推計は現状のまま"
+        elif remaining_uncovered_cow_count == 0:
+            uncovered_change_ja = "未カバー推計をなくす想定"
+        else:
+            uncovered_change_ja = "未カバー推計を一部減らす"
+        spending_scope_ja = {
+            "current": "追加の設備費はない",
+            "first_phase": "設備費を一部先に払う",
+            "full_coverage": "設備費を広く先に払う",
+        }[card["key"]]
+        comparison_role_ja = {
+            "current": "暑い時間の困り方を見定める基準",
+            "first_phase": "全体を整える前に改善の手応えを確かめる比較",
+            "full_coverage": "効果確認より先に支出範囲も広げる比較",
+        }[card["key"]]
+        financial = financial_by_key.get(card["key"])
+        cards.append(
+            {
+                "key": card["key"],
+                "label_ja": card["label_ja"],
+                "upfront_cost_yen": (
+                    0 if financial is None else financial["incremental_capex_yen"]
+                ),
+                "remaining_uncovered_cow_count": remaining_uncovered_cow_count,
+                "annual_comparison_yen": annual_difference,
+                "annual_comparison_status": annual_status,
+                "reading_facts_ja": {
+                    "uncovered_change_ja": uncovered_change_ja,
+                    "spending_scope_ja": spending_scope_ja,
+                    "comparison_role_ja": comparison_role_ja,
+                },
+                "field_check_ja": card["field_check_ja"],
+            }
+        )
+    cards_by_key = {card["key"]: card for card in cards}
+    first_phase = cards_by_key["first_phase"]
+    full_coverage = cards_by_key["full_coverage"]
+    current_card = cards_by_key["current"]
+    pathway_policy = build_adaptive_pathway_position(
+        ThreeChoiceEvidence(
+            current=ComparisonOption(
+                upfront_cost_yen=int(current_card["upfront_cost_yen"]),
+                remaining_uncovered_cow_count=int(
+                    current_card["remaining_uncovered_cow_count"]
+                ),
+                annual_comparison_yen=int(current_card["annual_comparison_yen"]),
+            ),
+            first_phase=ComparisonOption(
+                upfront_cost_yen=int(first_phase["upfront_cost_yen"]),
+                remaining_uncovered_cow_count=int(
+                    first_phase["remaining_uncovered_cow_count"]
+                ),
+                annual_comparison_yen=int(first_phase["annual_comparison_yen"]),
+            ),
+            full_coverage=ComparisonOption(
+                upfront_cost_yen=int(full_coverage["upfront_cost_yen"]),
+                remaining_uncovered_cow_count=int(
+                    full_coverage["remaining_uncovered_cow_count"]
+                ),
+                annual_comparison_yen=int(full_coverage["annual_comparison_yen"]),
+            ),
+        )
+    )
+    if (
+        first_phase["remaining_uncovered_cow_count"] < current_uncovered_cow_count
+        and full_coverage["remaining_uncovered_cow_count"] == 0
+    ):
+        coverage_relation_ja = "不足箇所案では未カバー推計が減り、全体案ではなくなる想定。"
+    elif first_phase["remaining_uncovered_cow_count"] < current_uncovered_cow_count:
+        coverage_relation_ja = "不足箇所案で未カバー推計は減るが、全体案でも残る想定。"
+    else:
+        coverage_relation_ja = "追加案による未カバー推計の変化は、現在の条件では限られている。"
+    if (
+        first_phase["annual_comparison_status"] == "negative"
+        and full_coverage["annual_comparison_status"] == "negative"
+    ):
+        annual_relation_ja = "追加案はいずれも、現在の比較条件では年間比較が追加なしを上回っていない。"
+    elif first_phase["annual_comparison_status"] == "negative":
+        annual_relation_ja = "不足箇所案は、現在の比較条件では年間比較が追加なしを上回っていない。"
+    elif full_coverage["annual_comparison_status"] == "negative":
+        annual_relation_ja = "全体案は、現在の比較条件では年間比較が追加なしを上回っていない。"
+    else:
+        annual_relation_ja = "追加案の年間比較は、現在の比較条件では追加なしを上回っている。"
+    if full_coverage["annual_comparison_yen"] < first_phase["annual_comparison_yen"]:
+        annual_relation_ja += " 全体案は不足箇所案より年間比較の負担が大きい。"
+    elif full_coverage["annual_comparison_yen"] > first_phase["annual_comparison_yen"]:
+        annual_relation_ja += " 全体案は不足箇所案より年間比較が良い。"
+    return {
+        "pathway_policy": asdict(pathway_policy),
+        "economic_guardrail_fact_ja": dashboard["step_four_pathway"][
+            "economic_guardrail_fact_ja"
+        ],
+        "pathway_policy_labels_ja": {
+            "MAINTAIN": "現状を維持する",
+            "START_SMALL": "小さく改善して効果を見る",
+            "COMPLETE_NOW": "今まとめて整える",
+            "REASSESS": "条件を見直してから決める",
+            "already_covered": "未カバー推計はすでにない",
+            "partial_reduction": "未カバー推計を一部減らす",
+            "complete_reduction": "未カバー推計をなくす",
+            "no_reduction_from_first_phase": "第1期では未カバー推計が減らない",
+            "not_needed": "追加判断を急がない",
+            "high": "全体整備を後から選べる",
+            "unclear": "小さく始める意味がまだ定まらない",
+            "not_applicable": "追加設備の年間比較は当てはまらない",
+            "first_phase_annual_comparison_not_negative": "第1期の年間比較は追加なしを下回っていない",
+            "first_phase_annual_comparison_negative": "第1期の年間比較は追加なしを下回る",
+            "full_coverage_annual_comparison_not_negative": "全体案の年間比較は追加なしを下回っていない",
+            "full_coverage_annual_comparison_negative": "全体案の年間比較は追加なしを下回る",
+        },
+        "comparison": {
+            "cards": tuple(cards),
+            "annual_comparison_meaning_ja": (
+                "追加なしを基準にした暑熱対策単体の年間比較。農場全体の収支ではない。"
+            ),
+            "annual_condition_source_kind": dashboard["financial_inputs"][
+                "avoided_milk_loss_kg_per_cow_day"
+            ]["source_kind"],
+            "common_field_action_ja": (
+                "暑い時間に、現在の未カバー推計牛床と既存ファンの稼働を確認する。"
+            ),
+        },
+        "decision_facts_ja": {
+            "coverage_relation_ja": coverage_relation_ja,
+            "annual_relation_ja": annual_relation_ja,
+            "observation_discriminator_ja": (
+                "未カバー推計の牛床が一部の困りごとか、牛舎全体に広がる困りごとか"
+            ),
+            "unknown_from_calculation_ja": (
+                "未カバー推計が実際の困りごととしてどこまで広がるかは、今回の数値だけでは分からない"
+            ),
+        },
+        "boundaries": {
+            "recommend_single_plan": False,
+            "recommend_investment_year": False,
+            "requires_wind_measurement": False,
+            "annual_comparison_is_whole_farm_cashflow": False,
         },
     }
 
@@ -1250,20 +1917,48 @@ def _dashboard(
         financial_assumptions,
         covered_cow_overrides,
     )
+    annual_heat_path_comparison = _annual_heat_path_comparison_view(
+        plans=navigation.plans,
+        initial_uncovered_cow_count=(
+            two_horizon_screening.current_before.estimated_uncovered_cow_count
+        ),
+        assumptions=financial_assumptions,
+        climate_background=climate_background,
+        covered_cow_overrides=covered_cow_overrides,
+    )
+    step_four_pathway = _step_four_pathway_view(
+        financial_comparison=financial_comparison,
+        annual_heat_path_comparison=annual_heat_path_comparison,
+    )
     return {
+        "delta_snapshot": _delta_snapshot(
+            lactating_cows=lactating_cows,
+            lane_count=lane_count,
+            existing_fan_count=existing_fan_count,
+            first_phase_fan_count=first_phase_fan_count,
+            investment_year=investment_year,
+            planned_fan_count=planned_fan_count,
+            operating_hours_per_day=operating_hours_per_day,
+            future_target_cow_count=future_target_cow_count,
+            confirmed_covered_cow_count=confirmed_covered_cow_count,
+            avoided_milk_loss_kg_per_cow_day=avoided_milk_loss_kg_per_cow_day,
+            milk_price_yen_per_kg=milk_price_yen_per_kg,
+            electricity_price_yen_per_kwh=electricity_price_yen_per_kwh,
+            current_annual_shipped_milk_kg=current_annual_shipped_milk_kg,
+            future_annual_shipped_milk_kg=future_annual_shipped_milk_kg,
+            reference_mode=reference_mode,
+        ),
         "navigation": navigation,
         "path_comparison": path_comparison,
         "financial_comparison": financial_comparison,
         "climate_background": climate_background,
-        "annual_heat_path_comparison": _annual_heat_path_comparison_view(
+        "annual_heat_path_comparison": annual_heat_path_comparison,
+        "right_sized_choice": _right_sized_choice_view(
             plans=navigation.plans,
-            initial_uncovered_cow_count=(
-                two_horizon_screening.current_before.estimated_uncovered_cow_count
-            ),
-            assumptions=financial_assumptions,
-            climate_background=climate_background,
-            covered_cow_overrides=covered_cow_overrides,
+            financial_comparison=financial_comparison,
+            annual_heat_path_comparison=annual_heat_path_comparison,
         ),
+        "step_four_pathway": step_four_pathway,
         "two_horizon_financial": _two_horizon_financial_view(
             first_phase_plan=navigation.plans[1],
             covered_cow_count=(
@@ -1272,6 +1967,12 @@ def _dashboard(
             assumptions=financial_assumptions,
             climate_background=climate_background,
             future_target_cow_count=future_target_cow_count,
+        ),
+        "future_outlook": _future_outlook_view(
+            first_phase_plan=navigation.plans[1],
+            full_plan=navigation.plans[2],
+            covered_cow_count=two_horizon_screening.covered_cow_count_for_finance,
+            assumptions=financial_assumptions,
         ),
         "operating_hours": {
             "value": float(effective_operating_hours),
@@ -1427,6 +2128,37 @@ def _candidate_view(candidate: NaturalInputCandidate) -> dict[str, Any]:
     }
 
 
+@app.get("/future-outlook/balance")
+def future_outlook_balance(
+    additional_fan_count: int = Query(..., ge=1),
+    covered_cow_count: int = Query(..., ge=1),
+    avoided_milk_loss_kg_per_cow_day: Decimal = Query(..., ge=0),
+    milk_price_yen_per_kg: Decimal = Query(..., ge=0),
+    electricity_price_yen_per_kwh: Decimal = Query(..., ge=0),
+    operating_hours_per_day: Decimal = Query(..., ge=0, le=24),
+) -> JSONResponse:
+    """Return the exact aggregate annual balance for outlook slider values."""
+
+    assumptions = replace(
+        STANDARD_FINANCIAL_ASSUMPTIONS,
+        avoided_milk_loss_kg_per_cow_day=avoided_milk_loss_kg_per_cow_day,
+        milk_price_yen_per_kg=milk_price_yen_per_kg,
+        electricity_price_yen_per_kwh=electricity_price_yen_per_kwh,
+        operating_hours_per_day=operating_hours_per_day,
+    )
+    economics = calculate_project_annual_economics(
+        FinancialPlan(additional_fan_count, covered_cow_count), assumptions
+    )
+    assert economics.annual_project_balance_yen is not None
+    return JSONResponse(
+        {
+            "balance_yen": str(economics.annual_project_balance_yen),
+            "balance_ja": _format_signed_yen(economics.annual_project_balance_yen),
+            "is_break_even": economics.annual_project_balance_yen == Decimal("0"),
+        }
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 def landing(request: Request) -> HTMLResponse:
     """Explain the product boundary before asking for farm conditions."""
@@ -1457,6 +2189,8 @@ def check(
     electricity_price_yen_per_kwh: str | None = Query(None),
     current_annual_shipped_milk_kg: str | None = Query(None),
     future_annual_shipped_milk_kg: str | None = Query(None),
+    previous_state: str | None = Query(None),
+    answered_key: str | None = Query(None),
 ) -> HTMLResponse:
     try:
         region_ja = SUPPORTED_REGION_JA
@@ -1507,6 +2241,11 @@ def check(
             parsed_current_shipment,
             parsed_future_shipment,
         )
+        if previous_state and answered_key in ANSWER_KEYS:
+            previous_dashboard = _dashboard_from_delta_snapshot(previous_state)
+            dashboard["answer_delta"] = build_answer_delta(
+                previous_dashboard, dashboard, answered_key
+            )
         error = None
     except (
         AdaptationInputError,
@@ -1525,6 +2264,33 @@ def check(
             "natural_input_error": None,
             "farm_description": "",
         },
+    )
+
+
+@app.post("/choice-summary")
+def summarize_choice_comparison(
+    state: str = Body(..., embed=True),
+    explainer: OpenAIResultExplainer = Depends(get_result_explainer),
+) -> JSONResponse:
+    """Return an asynchronous AI reading of the already-calculated cards."""
+
+    try:
+        dashboard = _dashboard_from_delta_snapshot(state)
+    except InputValidationError:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "比較条件を読み取れませんでした。画面を更新してください。"},
+        )
+    payload = _choice_summary_payload(dashboard)
+    try:
+        summary = explainer.summarize_choices(payload)
+    except ResultExplanationUnavailable:
+        summary = build_fallback_choice_summary(payload)
+    return JSONResponse(
+        {
+            "summary": asdict(summary),
+            "source_kind": summary.source_kind,
+        }
     )
 
 

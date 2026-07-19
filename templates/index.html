@@ -23,7 +23,8 @@
   {% set sales_context = dashboard.farm_sales_context %}
   {% set primary_future = not reference_mode and adaptation.inputs.future_target_cow_count is none %}
   {% set primary_coverage = not reference_mode and not primary_future and adaptation.inputs.confirmed_covered_cow_count is none %}
-  {% set primary_milk = not reference_mode and not primary_future and not primary_coverage and not financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}
+  {% set milk_observation_pending = not reference_mode and not primary_future and not primary_coverage and not financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}
+  {% set primary_answer_key = 'actual_fan_count' if reference_mode else ('future_target_cow_count' if primary_future else ('cow_level_wind_speed' if primary_coverage else 'operating_hours')) %}
   <main>
     <header class="intro check-intro">
       <a class="back-link" href="/">Dairy Horizonの主旨へ戻る</a>
@@ -276,48 +277,6 @@
       </ul>
     </section>
 
-    <section class="result-explanation guide-conversation" aria-labelledby="result-explanation-heading">
-      <div class="chat-bubble assistant-bubble">
-        <p class="section-kicker">AIによる補足</p>
-        <h2 id="result-explanation-heading">結果を言葉で確認する</h2>
-        <p>上の要点と計算済みの数値をもとに、今の条件で気をつける点を平易な言葉で確認できます。</p>
-      </div>
-      <form method="post" action="/explain">
-        <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
-        <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
-        <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
-        <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
-        <input name="first_phase_fan_count" type="hidden" value="{{ nav.plans[1].additional_fan_count }}">
-        <input name="investment_year" type="hidden" value="{{ first_path.investment_year or pathway.start_year }}">
-        <input name="planned_fan_count" type="hidden" value="{{ nav.planned_fan_count or '' }}">
-        {% if operating.is_user_input %}<input name="operating_hours_per_day" type="hidden" value="{{ operating.value_ja }}">{% endif %}
-        {% if financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}<input name="avoided_milk_loss_kg_per_cow_day" type="hidden" value="{{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}">{% endif %}
-        {% if financial_inputs.milk_price_yen_per_kg.is_user_input %}<input name="milk_price_yen_per_kg" type="hidden" value="{{ financial_inputs.milk_price_yen_per_kg.value_ja }}">{% endif %}
-        {% if financial_inputs.electricity_price_yen_per_kwh.is_user_input %}<input name="electricity_price_yen_per_kwh" type="hidden" value="{{ financial_inputs.electricity_price_yen_per_kwh.value_ja }}">{% endif %}
-        {% if sales_context.current_annual_shipped_milk_kg is not none %}<input name="current_annual_shipped_milk_kg" type="hidden" value="{{ sales_context.current_annual_shipped_milk_kg }}">{% endif %}
-        {% if sales_context.future_annual_shipped_milk_kg is not none %}<input name="future_annual_shipped_milk_kg" type="hidden" value="{{ sales_context.future_annual_shipped_milk_kg }}">{% endif %}
-        {% if adaptation.inputs.future_target_cow_count is not none %}<input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">{% endif %}
-        {% if adaptation.inputs.confirmed_covered_cow_count is not none %}<input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">{% endif %}
-        <input name="reference_mode" type="hidden" value="{{ 'true' if reference_mode else 'false' }}">
-        <button type="submit">{% if dashboard.result_explanation %}読み解きを更新{% else %}AIにこの結果を読み解いてもらう{% endif %}</button>
-      </form>
-      {% if dashboard.result_explanation %}
-        <div class="explanation-answer chat-bubble assistant-bubble">
-          <p class="section-kicker">AIによる読み解き</p>
-          {% if dashboard.result_explanation.api_failed %}<p class="explanation-fallback-note">AI説明を利用できなかったため、計算結果から定型文を表示しています。</p>{% endif %}
-          <ul class="explanation-facts">
-            {% for fact in dashboard.result_explanation.facts_ja %}<li>{{ fact }}</li>{% endfor %}
-          </ul>
-          <h3>{{ dashboard.result_explanation.headline_ja }}</h3>
-          <p>{{ dashboard.result_explanation.interpretation_ja }}</p>
-          <p>{{ dashboard.result_explanation.condition_ja }}</p>
-          <dl><div><dt>次に確認する一件</dt><dd>{{ dashboard.result_explanation.next_check_ja }}</dd></div></dl>
-          <p><a class="guided-answer-link" href="#next-step">この一件を入力して再計算する</a></p>
-          <small class="source-kind">{{ dashboard.result_explanation.source_kind }}</small>
-        </div>
-      {% endif %}
-    </section>
-
     <details class="support-detail">
       <summary><strong>第1期の機器分岐</strong><span> 標準型と比較用の他機種で、確認できる範囲を見る</span></summary>
     <section class="equipment-branches" aria-labelledby="equipment-branches-heading">
@@ -336,7 +295,7 @@
               <div><dt>回収に必要な防止乳量</dt><dd>{{ equipment.break_even_milk_ja }}</dd></div>
             </dl>
             <p>{{ equipment.next_confirmation_ja }}</p>
-            <small class="source-kind">電力仕様: {{ equipment.power_source_kind }} ／ 台数: {{ equipment.count_source_kind }}</small>
+              <small class="source-kind">電力仕様: {{ source_kind_ja(equipment.power_source_kind) }} ／ 台数: {{ source_kind_ja(equipment.count_source_kind) }}</small>
           </article>
         {% endfor %}
       </div>
@@ -425,7 +384,7 @@
             </article>
           {% endfor %}
         </div>
-        <p class="annual-heat-path-note">乳代売上への影響は、防げない乳量と実現乳価から計算した売上減少の目安です。「何もしない場合との差」は、その売上減少から変動費を除いた限界利益損失と、追加設備の電気代・設備費年換算を比べています。夏季の防止乳量差は <span class="source-kind">{{ dashboard.financial_inputs.avoided_milk_loss_kg_per_cow_day.source_kind }}</span> であり、実測効果の保証ではありません。この差は暑熱対策単体の年間比較で、農場全体の黒字を示すものではありません。</p>
+        <p class="annual-heat-path-note">乳代売上への影響は、防げない乳量と実現乳価から計算した売上減少の目安です。「何もしない場合との差」は、その売上減少から変動費を除いた限界利益損失と、追加設備の電気代・設備費年換算を比べています。夏季の防止乳量差は <span class="source-kind">{{ source_kind_ja(dashboard.financial_inputs.avoided_milk_loss_kg_per_cow_day.source_kind) }}</span> であり、実測効果の保証ではありません。この差は暑熱対策単体の年間比較で、農場全体の黒字を示すものではありません。</p>
       </section>
       {% if dashboard.two_horizon_financial %}
         <section class="annual-snapshot-comparison" aria-labelledby="annual-snapshot-heading">
@@ -455,7 +414,7 @@
               </article>
             {% endfor %}
           </div>
-          <p class="annual-snapshot-note">第1期{{ dashboard.two_horizon_financial.additional_fan_count }}台と新規カバー{{ dashboard.two_horizon_financial.covered_cow_count }}頭は変えず、THI対象日数だけを期間別に反映した二つの年間スナップショットです。年間限界利益効果は、夏季の防止乳量差・実現乳価・変動費率から計算します。防止乳量差は <span class="source-kind">{{ dashboard.financial_inputs.avoided_milk_loss_kg_per_cow_day.source_kind }}</span> です。年間の差引は、年間限界利益効果から電気代と設備費の年換算を引いた比較値です。農場全体のキャッシュフローではありません。初期投資の支払時期、借入、税、農場全体の費用は含みません。5年間の累積ROIではありません。</p>
+          <p class="annual-snapshot-note">第1期{{ dashboard.two_horizon_financial.additional_fan_count }}台と新規カバー{{ dashboard.two_horizon_financial.covered_cow_count }}頭は変えず、THI対象日数だけを期間別に反映した二つの年間スナップショットです。年間限界利益効果は、夏季の防止乳量差・実現乳価・変動費率から計算します。防止乳量差は <span class="source-kind">{{ source_kind_ja(dashboard.financial_inputs.avoided_milk_loss_kg_per_cow_day.source_kind) }}</span> です。年間の差引は、年間限界利益効果から電気代と設備費の年換算を引いた比較値です。農場全体のキャッシュフローではありません。初期投資の支払時期、借入、税、農場全体の費用は含みません。5年間の累積ROIではありません。</p>
         </section>
       {% endif %}
       {% if dashboard.farm_sales_context.is_available %}
@@ -498,7 +457,7 @@
         <p>「見積額との差」がマイナスなら標準見積が払える目安を上回り、プラスならその範囲内です。実際の採算判定ではなく、見積額と夏季乳量差を確認するための目安です。</p>
         <dl class="financial-assumption-list">
           {% for assumption in dashboard.financial_comparison.assumptions %}
-            <div><dt>{{ assumption.label }}</dt><dd>{{ assumption.value }}</dd><small class="source-kind">{{ assumption.kind }}</small></div>
+            <div><dt>{{ assumption.label }}</dt><dd>{{ assumption.value }}</dd><small class="source-kind">{{ source_kind_ja(assumption.kind) }}</small></div>
           {% endfor %}
         </dl>
         <p class="financial-source">出典：全酪連 COW BELL No.178「暑熱対策の設備投資を考える」の標準計算例。防げる乳量3.0kg／頭・日は効果保証ではなく、払える目安を比較するためのデモ仮定です。法定耐用年数7年は年割りに使い、故障年や交換年を意味しません。</p>
@@ -552,35 +511,144 @@
     </section>
     {% endif %}
 
+    {% if dashboard.future_outlook %}<section class="future-outlook workflow-step" id="future-outlook" aria-labelledby="future-outlook-heading">
+      <p class="section-kicker">条件を変えた場合（詳細）</p>
+      <h2 id="future-outlook-heading">比較条件で年間差引がどう変わるか</h2>
+      <p>これは投資判断ではなく、条件によって比較結果がどう変わるかを見る詳細表示です。</p>
+      <ol class="future-path">
+        <li><strong>まず整える場合</strong><span>+{{ dashboard.future_outlook.first_phase_additional_fan_count }}台で、不足しそうな場所がどこまで減るかを比べます。</span></li>
+        <li><strong>条件を変えた場合</strong><span>乳量低下、乳価、電気、運転時間による年間差引の変化を比べます。</span></li>
+        <li><strong>全体を整えた場合</strong><span>{% if dashboard.future_outlook.second_phase_candidate_fan_count %}さらに+{{ dashboard.future_outlook.second_phase_candidate_fan_count }}台を加えた比較案も、牛舎図で確認できます。{% else %}今回の計画台数は、まず整える場合と同じです。{% endif %}</span></li>
+      </ol>
+      <div class="sensitivity-map">
+        <div>
+          <h3>条件ごとに、回収ラインから動かします</h3>
+          <p>各カードは一つの条件だけを動かします。ほかの条件は現在の比較条件に固定しています。予測や発生確率ではありません。</p>
+        </div>
+        <article class="aggregate-balance" data-outlook-aggregate data-outlook-request='{{ dashboard.future_outlook.aggregate.request|tojson }}' data-visual-range="{{ dashboard.future_outlook.aggregate.visual_range_yen }}">
+          <h4>4条件を合わせた第1期の年間差引</h4>
+          <p>4本のスライダーを同時に動かした結果です。</p>
+          <div class="aggregate-scale" aria-label="4条件を合わせた年間差引の位置"><span>設備負担側</span><i>0円</i><span>改善側</span><b data-aggregate-marker></b></div>
+          <p class="aggregate-reading" data-aggregate-reading>{% if dashboard.future_outlook.aggregate.is_break_even %}<strong>回収ライン（損得0円の境目）</strong>{% else %}年間の差引は <strong>{{ dashboard.future_outlook.aggregate.balance_ja }}</strong> です。{% endif %}</p>
+        </article>
+        <div class="sensitivity-controls">
+          {% for control in dashboard.future_outlook.controls %}
+            <article class="sensitivity-control" data-outlook-control data-outlook-key="{{ control.key }}" data-outlook-current="{{ control.current_value }}" data-outlook-points='{{ control.points|tojson }}'>
+              <h4>{{ control.label_ja }}</h4>
+              {% if control.status == 'reachable' %}
+                <p class="sensitivity-break-even">回収ライン：<strong>{{ control.break_even_ja }}</strong></p>
+                <label>{{ control.step_ja }}{{ control.unit_ja }}ずつ動かす<input type="range" min="0" max="{{ control.points|length - 1 }}" value="{{ control.initial_index }}" step="1" data-outlook-slider></label>
+                <p class="sensitivity-reading" data-outlook-reading></p>
+              {% else %}
+                <p class="sensitivity-unreachable">{{ control.unreachable_ja }}</p>
+                <small>ほかの条件を現在の比較条件に固定した結果です。</small>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+        <small class="sensitivity-note">スライダーは結果を保存・変更しません。次の夏の記録を、各回収ラインのどちら側に置けるかを考えるための表示です。</small>
+      </div>
+    </section>{% endif %}
+
     <section class="next-step workflow-step" id="next-step" aria-labelledby="next-heading">
       <h2 class="workflow-step-title">ステップ4：次の一手</h2>
-      <h3 id="next-heading">{% if reference_mode %}現在使っているファンは何台ですか？{% elif primary_future %}5年後の対策対象頭数は何頭ですか？{% elif primary_coverage %}追加{{ adaptation.inputs.first_phase_additional_fan_count }}台の候補範囲で、牛体付近風速を確認できた対象は何頭ですか？{% elif primary_milk %}暑熱期にどれだけ乳量低下を防げましたか？{% else %}主要な確認値を反映しました{% endif %}</h3>
-      <p>{% if reference_mode %}参考値を実際の台数へ置き換え、現在の不足を再計算します。{% elif primary_future %}将来頭数を入力すると、現在の過不足とは分けて再計算します。{% elif primary_coverage %}頭数基準ではなく、牛体付近2m/s以上を実測で確認した対象頭数を回収計算へ反映します。{% elif primary_milk %}風速で送風範囲を確認した後は、夏季の防止乳量差で経済効果を確認します。{% else %}必要に応じて下の比較条件を変更し、同じ場所で結果を更新できます。{% endif %}</p>
-      <form class="next-step-inputs" method="get" action="/check#next-step">
+      <h3 id="next-heading">今年、どこまで整えるかを比べます</h3>
+      <p>一番よい数値の案を選ぶ画面ではありません。先に払う額、今夏に残る不確実さ、次に現場で見ることを同じ高さで比べます。</p>
+      <section class="step-four-pathway" data-step-four-pathway data-default-barn-plan="{{ dashboard.step_four_pathway.default_barn_plan }}">
+        <p class="section-kicker">比較の読み方</p>
+        <h3>{{ dashboard.step_four_pathway.title_ja }}</h3>
+        <p>{{ dashboard.step_four_pathway.summary_ja }}</p>
+        <section class="step-four-financial-reading">
+          <h4>年間差が出る理由</h4>
+          <p>{{ dashboard.step_four_pathway.financial_reading_ja }}</p>
+        </section>
+        <section class="step-four-decision">
+          <h4>{{ dashboard.step_four_pathway.screen_heading_ja }}</h4>
+          <p>{{ dashboard.step_four_pathway.screen_focus_ja }}</p>
+        </section>
+      </section>
+      <div class="step-four-workspace">
+        <section class="step-four-options" aria-labelledby="step-four-options-heading">
+          <h3 id="step-four-options-heading">3つの案を比べる</h3>
+          <div class="right-sized-choice-grid" aria-label="身の丈に合わせた三つの比較案">
+            {% for choice in dashboard.right_sized_choice.cards %}
+              <article class="right-sized-choice-card{% if choice.key == dashboard.step_four_pathway.default_barn_plan %} active{% endif %}" data-choice-card="{{ choice.key }}">
+                <button type="button" class="choice-barn-toggle" data-next-step-plan="{{ choice.key }}" aria-controls="next-step-barn-viewer" aria-pressed="{% if choice.key == dashboard.step_four_pathway.default_barn_plan %}true{% else %}false{% endif %}">
+                  <strong>{{ choice.label_ja }}</strong>
+                  <dl>
+                    <div><dt>先に払う額</dt><dd>{{ choice.upfront_cost_ja }}</dd></div>
+                    <div><dt>残る未カバー推計</dt><dd>{{ choice.remaining_uncovered_ja }}</dd></div>
+                    <div><dt>年間の比較結果</dt><dd class="{{ choice.annual_comparison_class }}">{{ choice.annual_comparison_ja }}</dd></div>
+                  </dl>
+                </button>
+                {% if choice.calculation %}
+                  <details class="choice-calculation-details">
+                    <summary><strong>年間差の計算を見る</strong></summary>
+                    <div class="choice-calculation-block">
+                      <h5>乳量効果の見込み</h5>
+                      <p>{{ choice.calculation.newly_covered_cow_count }}頭 × {{ choice.calculation.heat_days_per_year_ja }} × {{ choice.calculation.milk_loss_ja }}kg／頭・日 = {{ choice.calculation.annual_avoided_milk_ja }}</p>
+                      <dl><div><dt>乳代相当（{{ choice.calculation.milk_price_ja }}円／kg）</dt><dd>{{ choice.calculation.annual_gross_benefit_ja }}</dd></div><div><dt>変動費{{ choice.calculation.variable_cost_ratio_percent_ja }}%を除く</dt><dd>{{ choice.calculation.annual_variable_cost_ja }}</dd></div><div><dt>残る効果</dt><dd>{{ choice.calculation.annual_contribution_benefit_ja }}</dd></div></dl>
+                    </div>
+                    <div class="choice-calculation-block">
+                      <h5>設備費の年割りと追加電気代</h5>
+                      <p>{{ choice.calculation.upfront_cost_ja }} ÷ {{ choice.calculation.useful_life_years }}年</p>
+                      <dl><div><dt>設備費の年割り</dt><dd>{{ choice.calculation.annualized_capex_ja }}／年</dd></div><div><dt>電力量料金</dt><dd>{{ choice.calculation.annual_energy_charge_ja }}／年</dd></div><div><dt>基本料金</dt><dd>{{ choice.calculation.annual_basic_charge_ja }}／年</dd></div><div><dt>追加電気代</dt><dd>{{ choice.calculation.annual_electricity_ja }}／年</dd></div></dl>
+                      <small>{{ choice.calculation.useful_life_years }}年は比較のための年割りで、借入の返済期間ではありません。</small>
+                    </div>
+                    <div class="choice-calculation-result"><span>年間の比較結果</span><strong>{{ choice.calculation.annual_comparison_ja }}／年</strong></div>
+                  </details>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+          <p class="right-sized-choice-note">{{ dashboard.right_sized_choice.annual_condition_note_ja }}</p>
+        </section>
+        <aside class="step-four-barn-panel" aria-labelledby="next-step-barn-title">
+          <p class="section-kicker" data-next-step-barn-kicker>まず整える場合の牛舎</p>
+          <h3 id="next-step-barn-title" data-next-step-barn-title>色が残る牛床を、現場で見ます</h3>
+          <p class="step-four-barn-reading" data-next-step-barn-reading>追加でカバーされた場所と、色が残る牛床を見ます。</p>
+          <div id="next-step-barn-viewer" class="barn-viewer" aria-label="まず整える場合の牛舎の2.5D表示"></div>
+          <p class="legend"><span class="covered"></span>既存でカバー <span class="newly-covered"></span>追加でカバー <span class="uncovered"></span>未カバー推計</p>
+          <p id="next-step-selection-detail" class="selection-detail">牛またはファンを選ぶと、ここに詳細が出ます。</p>
+          <details class="step-four-field-check">
+            <summary><strong>現場で見ること</strong></summary>
+            <ul><li>その場所のファンが動いているか</li><li>風を感じにくそうな牛床が残っていないか</li><li>牛がその場所を避けたり、普段と違う様子になっていないか</li></ul>
+          </details>
+          <small>1台＝3頭は不足を見つけるための目安です。実際に風が届く範囲を保証するものではありません。</small>
+        </aside>
+      </div>
+      {% if dashboard.answer_delta %}
+        <article class="answer-delta chat-bubble assistant-bubble" data-answer-delta="{{ dashboard.answer_delta.answered_key }}" aria-live="polite">
+          <p class="section-kicker">回答を反映した結果</p>
+          <h3>この一件による変化</h3>
+          {% if dashboard.answer_delta.changed %}
+            <dl class="answer-delta-changes">
+              {% for change in dashboard.answer_delta.changed %}
+                <div><dt>{{ change.label_ja }}</dt><dd><span>{{ change.before_ja }}</span><b>→</b><strong>{{ change.after_ja }}</strong></dd></div>
+              {% endfor %}
+            </dl>
+          {% else %}
+            <p>入力値が前回と同じため、今回の結果は変わりません。</p>
+          {% endif %}
+          {% if dashboard.answer_delta.unchanged %}<p class="answer-delta-unchanged"><strong>変わらないもの：</strong>{{ dashboard.answer_delta.unchanged|join('、') }}</p>{% endif %}
+        </article>
+      {% endif %}
+    </section>
+
+    <details class="comparison-conditions" id="comparison-conditions">
+      <summary><strong>比較条件を詳しく見る</strong><span> 設備案・現場条件・電気・乳価</span></summary>
+      <form class="next-step-inputs" method="get" action="/check#comparison-conditions">
+        <input name="previous_state" type="hidden" value="{{ dashboard.delta_snapshot }}">
         <input name="region_ja" type="hidden" value="{{ nav.inputs.region_ja }}">
         <input name="lactating_cows" type="hidden" value="{{ nav.inputs.lactating_cows }}">
         <input name="lane_count" type="hidden" value="{{ nav.inputs.lane_count }}">
         {% if reference_mode %}
-          <label class="next-step-primary" data-primary-input="existing_fan_count">現在使っているファン台数<span><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}" required> 台</span><small>入力すると参考状態を終了し、実際の現在値として計算します。</small></label>
+          <label>現在使っているファン台数<span><input name="existing_fan_count" type="number" min="0" value="{{ nav.inputs.existing_fan_count }}" required> 台</span><small>参考状態を、実際の現在値へ置き換えます。</small></label>
         {% else %}
           <input name="existing_fan_count" type="hidden" value="{{ nav.inputs.existing_fan_count }}">
         {% endif %}
-
-        {% if primary_future %}
-          <label class="next-step-primary" data-primary-input="future_target_cow_count">5年後の対策対象頭数<span><input name="future_target_cow_count" type="number" min="1" max="300" placeholder="例：45"> 頭</span><small>現在の頭数を変更せず、5年後の頭数基準を別に計算します。</small></label>
-        {% elif primary_coverage %}
-          <input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">
-          <label class="next-step-primary" data-primary-input="confirmed_covered_cow_count">牛体付近2m/s以上を確認できた対象<span><input name="confirmed_covered_cow_count" type="number" min="0" max="{{ adaptation.assumed_newly_covered_cow_count }}" placeholder="最大{{ adaptation.assumed_newly_covered_cow_count }}"> 頭</span><small>風速確認は送風範囲の確認であり、乳量効果の証明ではありません。</small></label>
-        {% elif primary_milk %}
-          <input name="future_target_cow_count" type="hidden" value="{{ adaptation.inputs.future_target_cow_count }}">
-          <input name="confirmed_covered_cow_count" type="hidden" value="{{ adaptation.inputs.confirmed_covered_cow_count }}">
-          <label class="next-step-primary" data-primary-input="avoided_milk_loss_kg_per_cow_day">夏季の防止乳量差<span><input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" step="0.1" placeholder="デモ仮定 {{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}"> kg／頭・THI対象日</span><small>未入力時の3.0kgは比較用デモ仮定です。農場で確認した差へ置き換えます。</small></label>
-        {% elif not reference_mode %}
-          <div class="next-step-complete" data-next-step-complete="true">将来頭数、風速確認頭数、夏季の防止乳量差を反映中です。</div>
-        {% endif %}
-
-        <details class="next-step-details"{% if not reference_mode and not primary_future and not primary_coverage and not primary_milk %} open{% endif %}>
-          <summary><strong>比較条件をまとめて変更</strong><span> 設備案・電気・乳価・出荷乳量</span></summary>
+        <details class="next-step-details">
+          <summary><strong>入力項目</strong><span> 設備案・現場条件・電気・乳価・出荷乳量</span></summary>
           <div class="next-step-fields">
             <fieldset>
               <legend>設備案</legend>
@@ -590,9 +658,9 @@
             </fieldset>
             <fieldset>
               <legend>現場で確認する値</legend>
-              {% if reference_mode or (not primary_future and not primary_coverage and not primary_milk) %}<label>5年後の対策対象頭数<span><input name="future_target_cow_count" type="number" min="1" max="300" value="{{ adaptation.inputs.future_target_cow_count or '' }}"> 頭</span></label>{% endif %}
-              {% if adaptation.inputs.future_target_cow_count is not none and (reference_mode or (not primary_future and not primary_coverage and not primary_milk)) %}<label>牛体付近2m/s以上を確認できた対象<span><input name="confirmed_covered_cow_count" type="number" min="0" max="{{ adaptation.assumed_newly_covered_cow_count }}" value="{{ adaptation.inputs.confirmed_covered_cow_count if adaptation.inputs.confirmed_covered_cow_count is not none else '' }}"> 頭</span></label>{% endif %}
-              {% if not primary_milk %}<label>夏季の防止乳量差<span><input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" step="0.1" value="{% if financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}{{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}{% endif %}" placeholder="標準仮定 {{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}"> kg／頭・THI対象日</span></label>{% endif %}
+              <label>将来の対策対象頭数<span><input name="future_target_cow_count" type="number" min="1" max="300" value="{{ adaptation.inputs.future_target_cow_count or '' }}"> 頭</span></label>
+              <label>牛体付近2m/s以上を確認できた対象<span><input name="confirmed_covered_cow_count" type="number" min="0" max="{{ adaptation.assumed_newly_covered_cow_count }}" value="{{ adaptation.inputs.confirmed_covered_cow_count if adaptation.inputs.confirmed_covered_cow_count is not none else '' }}"> 頭</span><small>専門的な現場確認値を使う場合だけ入力します。</small></label>
+              <label>夏季の防止乳量差<span><input name="avoided_milk_loss_kg_per_cow_day" type="number" min="0" step="0.1" value="{% if financial_inputs.avoided_milk_loss_kg_per_cow_day.is_user_input %}{{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}{% endif %}" placeholder="比較用仮定 {{ financial_inputs.avoided_milk_loss_kg_per_cow_day.value_ja }}"> kg／頭・THI対象日</span><small>記録がそろった場合だけ比較条件として置き換えます。将来の予測値を入力する欄ではありません。</small></label>
             </fieldset>
             <fieldset>
               <legend>電気と乳価</legend>
@@ -608,16 +676,10 @@
             </fieldset>
           </div>
         </details>
-        <button type="submit">この条件で再計算</button>
-        <small class="anchor-return-note">更新後もこの「次の一手」へ戻ります。</small>
+        <button type="submit">比較条件を更新</button>
+        <small class="anchor-return-note">更新後は、この詳細条件へ戻ります。</small>
       </form>
-    </section>
-
-    <section class="conditions" aria-labelledby="conditions-heading">
-      <p class="section-kicker">確認する条件</p>
-      <h2 id="conditions-heading">画面の不足は、現場で確かめてから次へ進みます</h2>
-      <p>この画面は投資判断を行いません。暑い時間帯の牛の様子、既存ファンの位置と稼働、実際に風が届く牛床を確認して、必要なら専門家へ相談します。</p>
-    </section>
+    </details>
 
     <details class="evidence">
       <summary><strong>標準仮定・計算根拠</strong><span> この画面で使った数字と資料を確認する</span></summary>
@@ -627,7 +689,7 @@
           <article role="row">
             <strong role="cell">{{ row.item }}</strong>
             <span role="cell">{{ row.value }}</span>
-            <span role="cell" class="source-kind">{{ row.kind }}</span>
+            <span role="cell" class="source-kind">{{ source_kind_ja(row.kind) }}</span>
             <span role="cell">{{ row.source }}<small>{{ row.note }}</small></span>
           </article>
         {% endfor %}
@@ -635,6 +697,54 @@
       <p class="formula">頭数基準の台数目安は、全酪連資料の「3頭につき1台以上」を使い、「搾乳牛頭数 ÷ 3頭／台」を全体で切り上げて計算します。列数による自動補正や2列共用による半減は行いません。牛体付近2m/s以上は現地確認事項です。既存ファン位置とカバー牛床は均等配置による推計です。将来気候から投資年や台数は決めません。</p>
     </details>
   </main>
+  <script>
+    const outlookControls = [...document.querySelectorAll('[data-outlook-control]')];
+    const aggregate = document.querySelector('[data-outlook-aggregate]');
+    const renderedControls = outlookControls.map((container) => ({
+      container,
+      points: JSON.parse(container.dataset.outlookPoints || '[]'),
+      slider: container.querySelector('[data-outlook-slider]'),
+      reading: container.querySelector('[data-outlook-reading]'),
+    }));
+    let aggregateRequestId = 0;
+    const renderAggregate = async () => {
+      if (!aggregate) return;
+      const request = JSON.parse(aggregate.dataset.outlookRequest || '{}');
+      renderedControls.forEach((control) => {
+        const point = control.slider && control.points[Number(control.slider.value)];
+        request[control.container.dataset.outlookKey] = point ? point.value : control.container.dataset.outlookCurrent;
+      });
+      const requestId = ++aggregateRequestId;
+      const response = await fetch(`/future-outlook/balance?${new URLSearchParams(request)}`);
+      if (!response.ok || requestId !== aggregateRequestId) return;
+      const result = await response.json();
+      if (requestId !== aggregateRequestId) return;
+      const reading = aggregate.querySelector('[data-aggregate-reading]');
+      const marker = aggregate.querySelector('[data-aggregate-marker]');
+      const visualRange = Number(aggregate.dataset.visualRange || '1');
+      const balance = Number(result.balance_yen);
+      marker.style.left = `${Math.max(5, Math.min(95, 50 + (balance / visualRange) * 45))}%`;
+      marker.classList.toggle('positive', balance > 0);
+      marker.classList.toggle('negative', balance < 0);
+      reading.innerHTML = result.is_break_even
+        ? '<strong>回収ライン（損得0円の境目）</strong>'
+        : `年間の差引は <strong>${result.balance_ja}</strong> です。`;
+    };
+    renderedControls.forEach((control) => {
+      if (!control.slider || !control.reading || !control.points.length) return;
+      const render = (skipAggregate = false) => {
+        const point = control.points[Number(control.slider.value)];
+        control.reading.innerHTML = point.is_break_even
+          ? '年間の差引は <strong>回収ライン（損得0円の境目）</strong> です。'
+          : `年間の差引は <strong>${point.balance_ja}</strong> です。`;
+        if (!skipAggregate) renderAggregate();
+      };
+      control.slider.addEventListener('input', () => render());
+      render(true);
+    });
+    renderAggregate();
+
+  </script>
   <script id="barn-payload" type="application/json">{{ dashboard.viewer_payload|tojson }}</script>
   <script type="module" src="{{ url_for('static', path='js/barn-viewer.js') }}?v={{ static_asset_version('js/barn-viewer.js') }}"></script>
 </body>

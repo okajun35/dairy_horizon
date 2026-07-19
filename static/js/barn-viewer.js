@@ -2,11 +2,19 @@ const payload = JSON.parse(document.querySelector('#barn-payload').textContent);
 const currentViewer = document.querySelector('#current-barn-viewer');
 const comparisonViewer = document.querySelector('#comparison-barn-viewer');
 const comparisonCurrentViewer = document.querySelector('#comparison-current-barn-viewer');
+const nextStepViewer = document.querySelector('#next-step-barn-viewer');
 const currentDetail = document.querySelector('#current-selection-detail');
 const comparisonDetail = document.querySelector('#comparison-selection-detail');
 const comparisonCurrentDetail = document.querySelector('#comparison-current-selection-detail');
+const nextStepDetail = document.querySelector('#next-step-selection-detail');
 const tabs = [...document.querySelectorAll('.plan-tab')];
 const pathCards = [...document.querySelectorAll('[data-path-card]')];
+const nextStepPlanButtons = [...document.querySelectorAll('[data-next-step-plan]')];
+const choiceCards = [...document.querySelectorAll('[data-choice-card]')];
+const nextStepBarnKicker = document.querySelector('[data-next-step-barn-kicker]');
+const nextStepBarnTitle = document.querySelector('[data-next-step-barn-title]');
+const nextStepBarnReading = document.querySelector('[data-next-step-barn-reading]');
+const stepFourPathway = document.querySelector('[data-step-four-pathway]');
 const allCows = payload.cows_by_lane.flat();
 const referenceMode = payload.input_mode === 'guideline_reference';
 const baselineLabel = referenceMode ? '参考値' : '現在';
@@ -79,7 +87,7 @@ function renderBarn(viewer, detail, plan) {
     const x = 74 + ((index + .5) / requiredCount) * 670;
     const y = 28 + laneIndex * laneHeight + 61;
     const isExisting = index < baselineFanAllocation[laneIndex];
-    const color = isExisting ? '#254f70' : selectedPlan === 'first_phase' ? '#277b58' : '#705b99';
+    const color = isExisting ? '#254f70' : plan.key === 'first_phase' ? '#277b58' : '#705b99';
     return `<g class="fan" data-fan="F${String(fanSequence).padStart(2, '0')}" data-existing="${isExisting}"><circle cx="${x}" cy="${y}" r="10" fill="${color}"/><path d="M${x - 7} ${y}h14M${x} ${y - 7}v14" stroke="white" stroke-width="2"/></g>`;
   }).join('')).join('');
   const lanes = payload.cows_by_lane.map((_, laneIndex) => {
@@ -119,6 +127,38 @@ function renderComparison() {
   pathCards.forEach((card) => card.classList.toggle('active', card.dataset.pathCard === selectedPlan));
 }
 
+function renderNextStepBarn(planKey) {
+  const plan = planFor(planKey);
+  const labels = {
+    current: {
+      kicker: '今のままの牛舎',
+      title: '未カバー推計の牛床を、現場で見ます',
+      reading: '追加せず、色が残る牛床がどこにあるかを見ます。',
+    },
+    first_phase: {
+      kicker: 'まず整える場合の牛舎',
+      title: '色が残る牛床を、現場で見ます',
+      reading: '追加でカバーされた場所と、色が残る牛床を見ます。',
+    },
+    full_coverage: {
+      kicker: '牛舎全体を整える場合の牛舎',
+      title: '全ての場所で、牛床の使われ方を現場で見ます',
+      reading: '未カバー推計がなくなる配置を、今のままと比べて見ます。',
+    },
+  };
+  renderBarn(nextStepViewer, nextStepDetail, plan);
+  nextStepDetail.textContent = '牛またはファンを選ぶと、ここに詳細が出ます。';
+  nextStepBarnKicker.textContent = labels[planKey].kicker;
+  nextStepBarnTitle.textContent = labels[planKey].title;
+  nextStepBarnReading.textContent = labels[planKey].reading;
+  nextStepPlanButtons.forEach((button) => {
+    button.setAttribute('aria-pressed', String(button.dataset.nextStepPlan === planKey));
+  });
+  choiceCards.forEach((card) => {
+    card.classList.toggle('active', card.dataset.choiceCard === planKey);
+  });
+}
+
 tabs.forEach((tab) => tab.addEventListener('click', () => {
   selectedPlan = tab.dataset.plan;
   tabs.forEach((item) => item.classList.toggle('active', item === tab));
@@ -127,4 +167,9 @@ tabs.forEach((tab) => tab.addEventListener('click', () => {
 
 renderBarn(currentViewer, currentDetail, planFor('current'));
 renderBarn(comparisonCurrentViewer, comparisonCurrentDetail, planFor('current'));
+renderNextStepBarn(stepFourPathway?.dataset.defaultBarnPlan || 'first_phase');
 renderComparison();
+
+nextStepPlanButtons.forEach((button) => button.addEventListener('click', () => {
+  renderNextStepBarn(button.dataset.nextStepPlan);
+}));

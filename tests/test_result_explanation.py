@@ -7,6 +7,7 @@ import unittest
 import httpx
 
 from app.result_explanation import (
+    ChoiceSummary,
     OpenAIResultExplainer,
     ResultExplanationUnavailable,
 )
@@ -70,6 +71,96 @@ SAMPLE_PAYLOAD = {
 
 
 class OpenAIResultExplainerTest(unittest.TestCase):
+    def test_retries_a_temporary_api_failure_once(self) -> None:
+        request_count = 0
+        delays: list[float] = []
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal request_count
+            request_count += 1
+            if request_count == 1:
+                return httpx.Response(503, json={"error": {"message": "busy"}})
+            return httpx.Response(
+                200,
+                json=_response_payload(
+                    {
+                        "headline_ja": "計算結果を条件ごとに確認します。",
+                        "interpretation_ja": "牛舎の不足と追加案の変化を分けて確認できます。",
+                        "condition_ja": "年間比較は条件によって変わります。",
+                        "next_check_key": "operating_hours",
+                    }
+                ),
+            )
+
+        explainer = OpenAIResultExplainer(
+            "test-key",
+            "gpt-5.6-luna",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+            sleep=delays.append,
+        )
+
+        result = explainer.explain(SAMPLE_PAYLOAD)
+
+        self.assertEqual(result.source_kind, "ai_explanation")
+        self.assertEqual(request_count, 2)
+        self.assertEqual(delays, [0.25])
+
+    def test_does_not_retry_an_authentication_failure(self) -> None:
+        request_count = 0
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal request_count
+            request_count += 1
+            return httpx.Response(401, json={"error": {"message": "invalid key"}})
+
+        explainer = OpenAIResultExplainer(
+            "test-key",
+            "gpt-5.6-luna",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+            sleep=lambda _delay: self.fail("authentication failures must not retry"),
+        )
+
+        with self.assertRaises(ResultExplanationUnavailable):
+            explainer.explain(SAMPLE_PAYLOAD)
+
+        self.assertEqual(request_count, 1)
+
+    def test_regenerates_an_unsafe_structured_output_once(self) -> None:
+        request_count = 0
+        delays: list[float] = []
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            nonlocal request_count
+            request_count += 1
+            if request_count == 1:
+                output = {
+                    "headline_ja": "追加は七台がおすすめです。",
+                    "interpretation_ja": "不足を解消します。",
+                    "condition_ja": "比較条件です。",
+                    "next_check_key": "operating_hours",
+                }
+            else:
+                output = {
+                    "headline_ja": "計算結果を条件ごとに確認します。",
+                    "interpretation_ja": "牛舎の不足と追加案の変化を分けて確認できます。",
+                    "condition_ja": "年間比較は条件によって変わります。",
+                    "next_check_key": "operating_hours",
+                }
+            return httpx.Response(200, json=_response_payload(output))
+
+        explainer = OpenAIResultExplainer(
+            "test-key",
+            "gpt-5.6-luna",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+            sleep=delays.append,
+        )
+
+        result = explainer.explain(SAMPLE_PAYLOAD)
+
+        self.assertEqual(result.source_kind, "ai_explanation")
+        self.assertEqual(request_count, 2)
+        self.assertEqual(delays, [0.1])
+
     def test_sends_only_structured_calculation_results_and_parses_output(self) -> None:
         captured_request: dict[str, object] = {}
 
@@ -113,6 +204,64 @@ class OpenAIResultExplainerTest(unittest.TestCase):
         )
         self.assertEqual(json.loads(captured_request["input"]), SAMPLE_PAYLOAD)
 
+    def test_summarizes_three_precalculated_choices_without_recommending_one(self) -> None:
+        captured_request: dict[str, object] = {}
+        captured_timeout: dict[str, object] = {}
+        choice_payload = {
+            "pathway_policy": {
+                "overall_position": "START_SMALL",
+                "uncovered_change": "partial_reduction",
+                "path_flexibility": "high",
+                "economic_guardrail": "first_phase_annual_comparison_negative",
+                "basis": [
+                    "first_phase_reduces_uncovered",
+                    "full_coverage_reduces_uncovered_further",
+                    "first_phase_annual_comparison_negative",
+                ],
+            },
+            "economic_guardrail_fact_ja": "不足箇所案の年間比較は追加なしを下回る。",
+            "comparison": {
+                "cards": [
+                    {"key": "current", "annual_comparison_status": "baseline"},
+                    {"key": "first_phase", "annual_comparison_status": "negative"},
+                    {"key": "full_coverage", "annual_comparison_status": "negative"},
+                ]
+            },
+            "boundaries": {"recommend_single_plan": False},
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured_request.update(json.loads(request.content))
+            captured_timeout.update(request.extensions["timeout"])
+            return httpx.Response(
+                200,
+                json=_response_payload(
+                    {
+                        "guardrail_ja": "年間比較は追加なしを下回ります。農場全体の赤字や投資の失敗を意味せず、追加費用を年間効果で回収できる確認ではありません。",
+                    }
+                ),
+            )
+
+        explainer = OpenAIResultExplainer(
+            "test-key",
+            "gpt-5.6-luna",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        result = explainer.summarize_choices(choice_payload)
+
+        self.assertIsInstance(result, ChoiceSummary)
+        self.assertEqual(result.source_kind, "ai_summary")
+        self.assertFalse(captured_request["store"])
+        self.assertEqual(captured_request["reasoning"], {"effort": "high"})
+        self.assertEqual(captured_request["max_output_tokens"], 4096)
+        self.assertEqual(captured_timeout["read"], 45.0)
+        self.assertEqual(json.loads(captured_request["input"]), choice_payload)
+        self.assertIn("費用面のガードレールだけ", captured_request["instructions"])
+        self.assertIn("進め方、案のおすすめ、二択、牛舎図", captured_request["instructions"])
+        schema = captured_request["text"]["format"]["schema"]  # type: ignore[index]
+        self.assertEqual(schema["properties"]["guardrail_ja"]["maxLength"], 160)  # type: ignore[index]
+
     def test_generated_explanation_cannot_introduce_numeric_claims(self) -> None:
         def handler(_request: httpx.Request) -> httpx.Response:
             return httpx.Response(
@@ -135,6 +284,61 @@ class OpenAIResultExplainerTest(unittest.TestCase):
 
         with self.assertRaises(ResultExplanationUnavailable):
             explainer.explain(SAMPLE_PAYLOAD)
+
+    def test_choice_summary_rejects_a_guardrail_that_conflicts_with_python(self) -> None:
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json=_response_payload(
+                    {
+                        "guardrail_ja": "年間比較は追加なしを下回っていません。投資回収の保証ではありません。",
+                    }
+                ),
+            )
+
+        explainer = OpenAIResultExplainer(
+            "test-key",
+            "gpt-5.6-luna",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+        with self.assertRaises(ResultExplanationUnavailable):
+            explainer.summarize_choices(
+                {
+                    "pathway_policy": {
+                        "economic_guardrail": "first_phase_annual_comparison_negative"
+                    }
+                }
+            )
+
+    def test_choice_summary_rejects_text_beyond_a_field_budget(self) -> None:
+        raw = {
+            "guardrail_ja": "あ" * 161,
+        }
+
+        with self.assertRaises(ValueError):
+            OpenAIResultExplainer._validated_choice_summary(raw)
+
+    def test_choice_summary_log_identifies_the_rejected_field(self) -> None:
+        invalid_output = {
+            "guardrail_ja": "あ" * 161,
+        }
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=_response_payload(invalid_output))
+
+        explainer = OpenAIResultExplainer(
+            "test-key",
+            "gpt-5.6-luna",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+            sleep=lambda _delay: None,
+        )
+
+        with self.assertLogs("app.result_explanation", level="WARNING") as logs:
+            with self.assertRaises(ResultExplanationUnavailable):
+                explainer.summarize_choices({"comparison": {"cards": []}})
+
+        self.assertIn("field=guardrail_ja reason=length", logs.output[0])
 
     def test_api_errors_do_not_expose_provider_details(self) -> None:
         def handler(_request: httpx.Request) -> httpx.Response:
@@ -164,6 +368,20 @@ class OpenAIResultExplainerLiveTest(unittest.TestCase):
         self.assertTrue(result.interpretation_ja)
         self.assertTrue(result.condition_ja)
         self.assertEqual(result.next_check_key, "operating_hours")
+
+    def test_live_api_reads_the_default_three_choices_as_a_decision(self) -> None:
+        """Keep the actual standard-case wording reviewable without a browser."""
+
+        from app.main import _choice_summary_payload, _dashboard
+
+        payload = _choice_summary_payload(_dashboard(60, 2, 10, None, 2026))
+        result = OpenAIResultExplainer.from_environment().summarize_choices(payload)
+        text = result.guardrail_ja
+
+        self.assertTrue(result.guardrail_ja)
+        self.assertIn("年間比較は追加なしを下回", result.guardrail_ja)
+        self.assertNotIn("おすすめ", text)
+        self.assertNotIn("回収できる", text)
 
 
 if __name__ == "__main__":

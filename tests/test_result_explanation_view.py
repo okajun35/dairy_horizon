@@ -4,8 +4,12 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from app.main import app, get_result_explainer
-from app.result_explanation import ResultExplanation, ResultExplanationUnavailable
+from app.main import _dashboard, _step_four_pathway_view, app, get_result_explainer
+from app.result_explanation import (
+    ChoiceSummary,
+    ResultExplanation,
+    ResultExplanationUnavailable,
+)
 
 
 FORM_DATA = {
@@ -36,8 +40,131 @@ class ResultExplanationViewTest(unittest.TestCase):
         response = TestClient(app).get("/check")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("AIにこの結果を読み解いてもらう", response.text)
-        self.assertNotIn("AIによる読み解き", response.text)
+        self.assertNotIn('data-choice-summary', response.text)
+        self.assertIn("仮置きの乳量効果 +236,318円／年", response.text)
+        self.assertIn("不足箇所案から見る", response.text)
+        self.assertNotIn('action="/explain#result-explanation"', response.text)
+
+    def test_step_four_primary_text_is_deterministic_for_all_four_positions(self) -> None:
+        def pathway_view(
+            *,
+            current_remaining: int,
+            first_remaining: int,
+            full_remaining: int,
+            first_upfront: int = 1_100_000,
+            full_upfront: int = 2_200_000,
+            first_annual: int = -46_552,
+            full_annual: int = -93_105,
+        ) -> dict[str, object]:
+            return _step_four_pathway_view(
+                financial_comparison={
+                    "plans": (
+                        {"key": "first_phase", "incremental_capex_yen": first_upfront},
+                        {"key": "full_coverage", "incremental_capex_yen": full_upfront},
+                    )
+                },
+                annual_heat_path_comparison={
+                    "plans": (
+                        {
+                            "key": "current",
+                            "remaining_uncovered_cow_count": current_remaining,
+                            "improvement_vs_no_action_yen": 0,
+                        },
+                        {
+                            "key": "first_phase",
+                            "remaining_uncovered_cow_count": first_remaining,
+                            "improvement_vs_no_action_yen": first_annual,
+                            "annual_contribution_benefit_ja": "+236,318円",
+                            "annualized_capex_ja": "-157,143円",
+                            "annual_electricity_ja": "-125,727円",
+                            "improvement_vs_no_action_ja": "-46,552円",
+                        },
+                        {
+                            "key": "full_coverage",
+                            "remaining_uncovered_cow_count": full_remaining,
+                            "improvement_vs_no_action_yen": full_annual,
+                            "annual_contribution_benefit_ja": "+472,635円",
+                            "annualized_capex_ja": "-314,286円",
+                            "annual_electricity_ja": "-251,454円",
+                            "improvement_vs_no_action_ja": "-93,105円",
+                        },
+                    )
+                },
+            )
+
+        views = {
+            "START_SMALL": pathway_view(
+                current_remaining=30, first_remaining=15, full_remaining=0
+            ),
+            "MAINTAIN": pathway_view(
+                current_remaining=0, first_remaining=0, full_remaining=0,
+                first_upfront=0, full_upfront=0, first_annual=0, full_annual=0,
+            ),
+            "COMPLETE_NOW": pathway_view(
+                current_remaining=30, first_remaining=15, full_remaining=0,
+                first_upfront=2_200_000, full_upfront=2_200_000,
+                first_annual=12_000, full_annual=20_000,
+            ),
+            "REASSESS": pathway_view(
+                current_remaining=30, first_remaining=30, full_remaining=0
+            ),
+        }
+
+        self.assertEqual(views["START_SMALL"]["policy"]["overall_position"], "START_SMALL")  # type: ignore[index]
+        self.assertEqual(views["START_SMALL"]["title_ja"], "不足箇所案から見る")
+        self.assertEqual(views["START_SMALL"]["screen_heading_ja"], "この画面で見ること")
+        self.assertIn("乳量効果 +236,318円", views["START_SMALL"]["financial_reading_ja"])
+        self.assertIn("まかないきれません", views["START_SMALL"]["financial_reading_ja"])
+        self.assertEqual(views["MAINTAIN"]["policy"]["overall_position"], "MAINTAIN")  # type: ignore[index]
+        self.assertEqual(views["MAINTAIN"]["default_barn_plan"], "current")
+        self.assertEqual(views["COMPLETE_NOW"]["policy"]["overall_position"], "COMPLETE_NOW")  # type: ignore[index]
+        self.assertEqual(views["COMPLETE_NOW"]["default_barn_plan"], "full_coverage")
+        self.assertEqual(views["COMPLETE_NOW"]["screen_heading_ja"], "この画面で見ること")
+        self.assertEqual(views["REASSESS"]["policy"]["overall_position"], "REASSESS")  # type: ignore[index]
+        self.assertIn("減らない", views["REASSESS"]["summary_ja"])
+
+    def test_choice_summary_endpoint_uses_three_choice_payload_and_fallback(self) -> None:
+        captured: dict[str, object] = {}
+
+        class FakeExplainer:
+            def summarize_choices(self, payload: dict[str, object]) -> ChoiceSummary:
+                captured.update(payload)
+                return ChoiceSummary(
+                    guardrail_ja="年間比較は追加なしを下回ります。農場全体の赤字や投資の失敗を意味せず、追加費用を年間効果で回収できる確認ではありません。",
+                    source_kind="ai_summary",
+                )
+
+        app.dependency_overrides[get_result_explainer] = lambda: FakeExplainer()
+        state = _dashboard(60, 2, 10, None, 2026)["delta_snapshot"]
+        response = TestClient(app).post("/choice-summary", json={"state": state})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured["comparison"]["cards"][0]["key"], "current")  # type: ignore[index]
+        self.assertEqual(captured["comparison"]["cards"][1]["key"], "first_phase")  # type: ignore[index]
+        self.assertEqual(captured["comparison"]["cards"][0]["reading_facts_ja"]["uncovered_change_ja"], "未カバー推計は現状のまま")  # type: ignore[index]
+        self.assertEqual(captured["comparison"]["cards"][1]["reading_facts_ja"]["comparison_role_ja"], "全体を整える前に改善の手応えを確かめる比較")  # type: ignore[index]
+        self.assertEqual(captured["comparison"]["cards"][2]["reading_facts_ja"]["spending_scope_ja"], "設備費を広く先に払う")  # type: ignore[index]
+        self.assertEqual(captured["pathway_policy"]["overall_position"], "START_SMALL")  # type: ignore[index]
+        self.assertEqual(captured["pathway_policy"]["economic_guardrail"], "first_phase_annual_comparison_negative")  # type: ignore[index]
+        self.assertEqual(captured["economic_guardrail_fact_ja"], "不足箇所案の年間比較は追加なしを下回る。")  # type: ignore[index]
+        self.assertEqual(captured["decision_facts_ja"]["observation_discriminator_ja"], "未カバー推計の牛床が一部の困りごとか、牛舎全体に広がる困りごとか")  # type: ignore[index]
+        self.assertIn("全体案は不足箇所案より年間比較の負担が大きい", captured["decision_facts_ja"]["annual_relation_ja"])  # type: ignore[index]
+        self.assertFalse(captured["boundaries"]["recommend_single_plan"])  # type: ignore[index]
+        self.assertEqual(response.json()["summary"]["source_kind"], "ai_summary")
+
+    def test_choice_summary_endpoint_uses_deterministic_fallback_when_ai_fails(self) -> None:
+        class FailingExplainer:
+            def summarize_choices(self, _payload: dict[str, object]) -> ChoiceSummary:
+                raise ResultExplanationUnavailable("provider detail")
+
+        app.dependency_overrides[get_result_explainer] = lambda: FailingExplainer()
+        state = _dashboard(60, 2, 10, None, 2026)["delta_snapshot"]
+        response = TestClient(app).post("/choice-summary", json={"state": state})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["source_kind"], "template_fallback")
+        self.assertIn("年間比較は追加なしを下回", response.json()["summary"]["guardrail_ja"])
+        self.assertNotIn("provider detail", response.text)
 
     def test_explain_route_passes_deterministic_payload_and_renders_answer(self) -> None:
         captured: dict[str, object] = {}
@@ -74,22 +201,14 @@ class ResultExplanationViewTest(unittest.TestCase):
         self.assertFalse(captured["boundaries"]["climate_changes_fan_count"])  # type: ignore[index]
         self.assertEqual(captured["future"]["target_cow_count"], 45)  # type: ignore[index]
         self.assertEqual(captured["decision_context"]["next_check_key"], "cow_level_wind_speed")  # type: ignore[index]
-        self.assertIn("AIによる読み解き", response.text)
-        self.assertIn("現在は頭数目安より10台少なく、未カバー推計は30頭です", response.text)
-        self.assertIn("第1期は5台追加で15頭を新たにカバー", response.text)
-        self.assertIn("現在相当は97〜98日／年", response.text)
-        self.assertIn("暑い日の平均運転時間は12時間／日です", response.text)
-        self.assertIn("2026〜2030年の暑熱対象日は中心目安104〜105日", response.text)
-        self.assertIn("小さく始める案と全体案を条件で比べます", response.text)
-        self.assertIn("次に確認する一件</dt><dd>設置候補範囲の牛体付近風速", response.text)
-        self.assertIn('class="guided-answer-link" href="#next-step"', response.text)
+        self.assertNotIn('data-choice-summary', response.text)
         self.assertIn(
-            '<form class="next-step-inputs" method="get" action="/check#next-step">',
+            '<form class="next-step-inputs" method="get" action="/check#comparison-conditions">',
             response.text,
         )
         self.assertIn('name="confirmed_covered_cow_count" type="number"', response.text)
-        self.assertIn("この条件で再計算", response.text)
-        self.assertIn("ai_explanation", response.text)
+        self.assertIn("比較条件を更新", response.text)
+        self.assertNotIn('action="/explain#result-explanation"', response.text)
         self.assertNotIn('<form class="operating-hours-control"', response.text)
         self.assertNotIn('<form class="first-phase-control"', response.text)
         self.assertIn(
@@ -107,10 +226,8 @@ class ResultExplanationViewTest(unittest.TestCase):
         response = TestClient(app).post("/explain", data=FORM_DATA)
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn("AI説明を利用できなかったため、計算結果から定型文を表示しています", response.text)
-        self.assertIn("計算結果を条件ごとに確認します", response.text)
-        self.assertIn("次に確認する一件</dt><dd>設置候補範囲の牛体付近風速", response.text)
-        self.assertIn("template_fallback", response.text)
+        self.assertNotIn('data-choice-summary', response.text)
+        self.assertNotIn('action="/explain#result-explanation"', response.text)
         self.assertNotIn("provider detail", response.text)
 
 
