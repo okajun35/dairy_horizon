@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "preview": "remotion studio src/index.jsx"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.494",
+    "@remotion/cli": "^4.0.494",
+    "remotion": "^4.0.494"
+  }
+}
